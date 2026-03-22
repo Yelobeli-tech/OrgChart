@@ -42,6 +42,24 @@
     pointer-events: none;
     overflow: visible;
   }
+  /* ── Hide (bin) button on cards ── */
+  .node-card .bin-btn {
+    position: absolute;
+    top: 3px; right: 3px;
+    opacity: 0;
+    transition: opacity .15s;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 1px 3px;
+    border-radius: 4px;
+    font-size: 11px;
+    line-height: 1;
+    color: #9ca3af;
+    z-index: 5;
+  }
+  .node-card:hover .bin-btn { opacity: 1; }
+  .node-card .bin-btn:hover { color: #ef4444; background: #fee2e2; }
   /* ── Expand/collapse buttons ── */
   .expand-btn {
     position: absolute;
@@ -69,17 +87,17 @@
      TOOLBAR
 ════════════════════════════════════════════════ -->
 <header id="toolbar"
-  class="flex items-center gap-3 px-4 py-2 bg-white dark:bg-gray-800 shadow z-20 flex-wrap">
+  class="flex items-center gap-3 px-4 py-2 z-20 flex-wrap shadow-lg"
+  style="background:#6d28d9">
 
-  <span class="font-bold text-brand-700 dark:text-brand-500 text-lg mr-2 whitespace-nowrap">
+  <span class="font-bold text-white text-lg mr-2 whitespace-nowrap">
     ⬡ OrgChart Wizard
   </span>
 
   <!-- File upload -->
   <label class="cursor-pointer flex items-center gap-1.5 text-sm font-medium px-4 py-1.5
-               rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700
-               text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600
-               shadow-sm transition-colors">
+               rounded-lg border border-white/30 bg-white/20 text-white
+               hover:bg-white/30 shadow-sm transition-colors">
     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
         d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12V4m0 0L8 8m4-4l4 4"/>
@@ -91,42 +109,89 @@
   <!-- Discard -->
   <button id="btn-discard"
     class="hidden flex items-center gap-1.5 text-sm font-medium px-4 py-1.5 rounded-lg
-           border border-red-300 dark:border-red-700 bg-white dark:bg-gray-700
-           text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20
-           shadow-sm transition-colors">
+           border border-red-200/60 bg-red-500/30 text-white
+           hover:bg-red-500/50 shadow-sm transition-colors">
     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
     </svg>
     Discard
   </button>
 
+  <!-- Company Dropdown -->
+  <div class="flex items-center gap-1">
+    <select id="company-select"
+      onchange="onCompanySelectChange(this)"
+      class="text-xs h-8 px-2 rounded-lg border border-white/30 bg-white/20 text-white
+             focus:outline-none focus:ring-2 focus:ring-white/40 cursor-pointer max-w-[150px]
+             [&>option]:bg-gray-800 [&>option]:text-white">
+    </select>
+    <button id="btn-save-company" onclick="openSaveCurrentModal()"
+      title="Save current chart as a company"
+      class="w-8 h-8 flex items-center justify-center rounded-lg border border-white/30
+             bg-white/20 text-white hover:bg-white/30 transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+           stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
+        <polyline points="17 21 17 13 7 13 7 21"/>
+        <polyline points="7 3 7 8 15 8"/>
+      </svg>
+    </button>
+    <button id="btn-delete-company" onclick="deleteActiveSlotConfirm()"
+      title="Remove this company"
+      class="hidden w-8 h-8 items-center justify-center rounded-lg border border-white/20
+             bg-white/10 text-white/70 hover:text-white hover:bg-red-500/30 transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7
+             m5 4v6m4-6v6M9 7V4h6v3M4 7h16"/>
+      </svg>
+    </button>
+  </div>
+
   <div class="flex-1"></div>
 
   <!-- Search -->
   <input id="search-box" type="search" placeholder="Search name / title…"
-    class="input-field w-44 text-sm"/>
+    class="w-44 text-sm px-2 py-1.5 rounded-lg border border-white/30 bg-white/20
+           text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-gray-900/20"/>
+
+  <!-- Level filter group -->
+  <div class="flex items-center rounded-lg border border-white/30 overflow-hidden shadow-sm">
+    <span class="px-2 h-8 flex items-center text-[10px] font-semibold uppercase tracking-wide
+                 text-white/70 bg-white/10 border-r border-white/30 select-none whitespace-nowrap">Levels</span>
+    <button id="btn-level-down"
+      class="flex items-center justify-center w-8 h-8 text-lg font-medium
+             bg-white/20 hover:bg-white/30 text-white transition-colors border-r border-white/30"
+      title="Show one fewer level">−</button>
+    <span id="level-label"
+      class="w-10 text-center text-xs font-semibold
+             bg-white/10 text-white select-none h-8 flex items-center justify-center">
+      All
+    </span>
+    <button id="btn-level-up"
+      class="flex items-center justify-center w-8 h-8 text-lg font-medium
+             bg-white/20 hover:bg-white/30 text-white transition-colors border-l border-white/30"
+      title="Show one more level">+</button>
+  </div>
 
   <!-- Zoom group -->
-  <div class="flex items-center rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden shadow-sm">
+  <div class="flex items-center rounded-lg border border-white/30 overflow-hidden shadow-sm">
     <button id="btn-zoom-out"
       class="flex items-center justify-center w-8 h-8 text-lg font-medium
-             bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600
-             text-gray-600 dark:text-gray-300 transition-colors border-r border-gray-200 dark:border-gray-600"
+             bg-white/20 hover:bg-white/30 text-white transition-colors border-r border-white/30"
       title="Zoom out (−)">−</button>
     <span id="zoom-label"
       class="w-12 text-center text-xs font-mono font-semibold
-             bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 select-none h-8 flex items-center justify-center">
+             bg-white/10 text-white select-none h-8 flex items-center justify-center">
       100%
     </span>
     <button id="btn-zoom-in"
       class="flex items-center justify-center w-8 h-8 text-lg font-medium
-             bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600
-             text-gray-600 dark:text-gray-300 transition-colors border-l border-gray-200 dark:border-gray-600"
+             bg-white/20 hover:bg-white/30 text-white transition-colors border-l border-white/30"
       title="Zoom in (+)">+</button>
     <button id="btn-zoom-fit"
       class="flex items-center gap-1 px-3 h-8 text-xs font-semibold
-             bg-gray-50 dark:bg-gray-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/40
-             text-indigo-600 dark:text-indigo-300 transition-colors border-l border-gray-200 dark:border-gray-600"
+             bg-white/30 hover:bg-white/40 text-white transition-colors border-l border-white/30"
       title="Fit to view (F)">
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -137,11 +202,10 @@
   </div>
 
   <!-- Export group -->
-  <div class="flex items-center rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden shadow-sm">
+  <div class="flex items-center rounded-lg border border-white/30 overflow-hidden shadow-sm">
     <button id="btn-export-png"
       class="flex items-center gap-1.5 px-3 h-8 text-xs font-semibold
-             bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600
-             text-gray-600 dark:text-gray-300 transition-colors border-r border-gray-200 dark:border-gray-600"
+             bg-white/20 hover:bg-white/30 text-white transition-colors border-r border-white/30"
       title="Export as PNG">
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -151,8 +215,7 @@
     </button>
     <button id="btn-print"
       class="flex items-center gap-1.5 px-3 h-8 text-xs font-semibold
-             bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600
-             text-gray-600 dark:text-gray-300 transition-colors"
+             bg-white/20 hover:bg-white/30 text-white transition-colors"
       title="Print">
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -163,7 +226,10 @@
   </div>
 
   <!-- Dark mode -->
-  <button id="btn-dark" class="btn-icon" title="Toggle dark mode">🌙</button>
+  <button id="btn-dark"
+    class="w-8 h-8 flex items-center justify-center rounded-lg border border-white/30
+           bg-white/20 hover:bg-white/30 font-bold text-sm transition-colors"
+    title="Toggle dark mode">🌙</button>
 </header>
 
 <!-- ══════════════════════════════════════════════
@@ -196,15 +262,38 @@
       </button>
     </div>
 
+    <div id="hidden-nodes-panel" class="hidden">
+      <button onclick="toggleSidebarSection('hidden-nodes-body','hidden-chevron')"
+        class="flex items-center justify-between w-full group">
+        <p class="font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide text-xs">Hidden (<span id="hidden-count">0</span>)</p>
+        <svg id="hidden-chevron" class="w-3 h-3 text-gray-400 transition-transform"
+             fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+      <div id="hidden-nodes-body" class="mt-1">
+        <div id="hidden-nodes-list" class="space-y-0.5 max-h-40 overflow-y-auto
+             border border-gray-200 dark:border-gray-700 rounded-lg p-1.5
+             bg-gray-50 dark:bg-gray-900/40"></div>
+      </div>
+    </div>
+
     <div id="unassigned-panel" class="hidden">
-      <p class="font-semibold mb-1 text-amber-500 uppercase tracking-wide text-xs">
-        ⚠ No manager (<span id="unassigned-count">0</span>)
-      </p>
-      <p class="text-[10px] text-gray-400 dark:text-gray-500 mb-1">
-        These employees have no "report to" code and are excluded from the chart.
-      </p>
-      <div id="unassigned-list" class="space-y-0.5 max-h-40 overflow-y-auto
-           border border-amber-200 dark:border-amber-900/40 rounded-lg p-1.5 bg-amber-50 dark:bg-amber-950/20">
+      <button onclick="toggleSidebarSection('unassigned-body','unassigned-chevron')"
+        class="flex items-center justify-between w-full group">
+        <p class="font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide text-xs">No manager (<span id="unassigned-count">0</span>)</p>
+        <svg id="unassigned-chevron" class="w-3 h-3 text-gray-400 transition-transform"
+             fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+      <div id="unassigned-body" class="mt-1">
+        <p class="text-[10px] text-gray-400 dark:text-gray-500 mb-1">
+          These employees have no "report to" code and are excluded from the chart.
+        </p>
+        <div id="unassigned-list" class="space-y-0.5 max-h-40 overflow-y-auto
+             border border-amber-200 dark:border-amber-900/40 rounded-lg p-1.5 bg-amber-50 dark:bg-amber-950/20">
+        </div>
       </div>
     </div>
 
@@ -220,15 +309,28 @@
       <svg id="svg-connectors"></svg>
       <!-- nodes injected here -->
     </div>
-    <!-- Empty state -->
+    <!-- Empty state / drop zone -->
     <div id="empty-state"
-      class="absolute inset-0 flex flex-col items-center justify-center gap-4 text-gray-400 dark:text-gray-600">
-      <svg class="w-20 h-20 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
-          d="M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1m4-4a4 4 0 100-8 4 4 0 000 8z"/>
-      </svg>
-      <p class="text-lg font-medium">Import a file or try Demo data</p>
-      <p class="text-sm">Supports .xlsx · .xls · .csv</p>
+      class="absolute inset-0 flex flex-col items-center justify-center">
+      <div id="drop-zone"
+        class="flex flex-col items-center justify-center gap-4 cursor-pointer
+               border-2 border-dashed border-gray-300 dark:border-gray-600
+               rounded-2xl px-16 py-14 text-center
+               bg-white dark:bg-gray-800 shadow-sm
+               hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20
+               transition-colors select-none"
+        onclick="document.getElementById('file-input').click()">
+        <!-- upload icon -->
+        <svg class="w-14 h-14 text-indigo-300 dark:text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 4v12m0-12l-4 4m4-4l4 4"/>
+        </svg>
+        <div>
+          <p class="text-base font-semibold text-gray-700 dark:text-gray-200">Click to import a file</p>
+          <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">or drag &amp; drop here</p>
+          <p class="text-xs text-gray-300 dark:text-gray-600 mt-2">.xlsx &nbsp;·&nbsp; .xls &nbsp;·&nbsp; .csv</p>
+        </div>
+      </div>
     </div>
   </div>
 </main>
@@ -312,12 +414,15 @@ btnDark.addEventListener('click', () => applyTheme(!html.classList.contains('dar
 // ── Toast helper ───────────────────────────────────────────────
 const toastEl = document.getElementById('error-toast');
 let toastTimer;
-function showError(msg) {
+function _showToast(msg, isSuccess) {
   toastEl.textContent = msg;
-  toastEl.classList.remove('hidden');
+  toastEl.classList.remove('hidden', 'bg-red-600', 'bg-emerald-600');
+  toastEl.classList.add(isSuccess ? 'bg-emerald-600' : 'bg-red-600');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toastEl.classList.add('hidden'), 4000);
+  toastTimer = setTimeout(() => toastEl.classList.add('hidden'), isSuccess ? 1800 : 4000);
 }
+function showError(msg)   { _showToast(msg, false); }
+function showSuccess(msg) { _showToast(msg, true);  }
 
 // ── Modal helpers ──────────────────────────────────────────────
 const modalOverlay  = document.getElementById('modal-overlay');
@@ -372,6 +477,9 @@ function exportPNG() {
       el.querySelectorAll('.node-card .rounded-xl').forEach(card => {
         card.style.borderColor = '#000000';
         card.style.backgroundColor = '#ffffff';
+        card.querySelectorAll('p, span, a').forEach(t => {
+          t.style.color = '#1f2937';
+        });
       });
     }
   }).then(canvas => {
@@ -412,6 +520,7 @@ let colorLabels = [
   { color: '#ef4444', label: 'HR' },
 ];
 let nodeColorOverrides = {};
+let hiddenNodeIds = new Set();   // IDs excluded from the chart view
 
 // ── File input wiring ────────────────────────────────────────────
 document.getElementById('file-input').addEventListener('change', function(e) {
@@ -420,6 +529,25 @@ document.getElementById('file-input').addEventListener('change', function(e) {
   this.value = ''; // allow re-selecting same file
   parseExcelWizard(file);
 });
+
+// ── Drop-zone drag-and-drop ────────────────────────────────────
+(function() {
+  const zone = document.getElementById('drop-zone');
+  if (!zone) return;
+  zone.addEventListener('dragover', e => {
+    e.preventDefault();
+    zone.classList.add('border-indigo-500', 'bg-indigo-50');
+  });
+  zone.addEventListener('dragleave', () => {
+    zone.classList.remove('border-indigo-500', 'bg-indigo-50');
+  });
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('border-indigo-500', 'bg-indigo-50');
+    const file = e.dataTransfer.files[0];
+    if (file) parseExcelWizard(file);
+  });
+})();
 
 // ─────────────────────────────────────────────────────────────────
 // parseExcelWizard(file)
@@ -456,7 +584,7 @@ function parseExcelWizard(file) {
 //   Renders a table: detected column names on the left,
 //   <select> dropdowns on the right so users map columns to fields.
 //   Required fields: id, name, managerId
-//   Optional fields: title, dept, email, avatar
+//   Optional fields: title, dept, cost
 // ─────────────────────────────────────────────────────────────────
 const FIELD_DEFS = [
   { key: 'id',        label: 'Employee ID',  required: true,  hint: 'Unique identifier for each person' },
@@ -464,8 +592,7 @@ const FIELD_DEFS = [
   { key: 'managerId', label: 'Manager ID',   required: true,  hint: 'ID of this person\'s direct manager' },
   { key: 'title',     label: 'Job Title',    required: false, hint: 'Role / position' },
   { key: 'dept',      label: 'Department',   required: false, hint: 'Used for colour-coding' },
-  { key: 'email',     label: 'Email',        required: false, hint: 'Shown in detail panel' },
-  { key: 'avatar',    label: 'Avatar URL',   required: false, hint: 'Photo URL (optional)' },
+  { key: 'cost',      label: 'Cost',         required: false, hint: 'Salary / cost (shown in detail panel)' },
 ];
 
 // Auto-guess which spreadsheet column maps to which field
@@ -477,8 +604,7 @@ function guessMapping(headers) {
     managerId: [/manager.?id/, /mgr.?id/, /reports.?to/, /parent.?id/, /supervisor.?id/],
     title:     [/^title$/, /job.?title/, /position/, /role/],
     dept:      [/^dept$/, /department/, /team/, /group/, /division/],
-    email:     [/^email$/, /e.?mail/, /contact/],
-    avatar:    [/^avatar$/, /photo/, /picture/, /image/, /url/],
+    cost:      [/^cost$/, /salary/, /wage/, /remuneration/, /pay/, /compensation/],
   };
 
   const guess = {};
@@ -703,8 +829,7 @@ function mapColumns(rows, map) {
     title:     map.title     ? String(r[map.title]     ?? '').trim() : '',
     dept:      map.dept      ? String(r[map.dept]      ?? '').trim() : '',
     managerId: map.managerId ? normalizeId(r[map.managerId]) : '',
-    email:     map.email     ? String(r[map.email]     ?? '').trim() : '',
-    avatar:    map.avatar    ? String(r[map.avatar]    ?? '').trim() : '',
+    cost:      map.cost      ? (parseFloat(String(r[map.cost] ?? '').replace(/[^0-9.\-]/g, '')) || 0) : 0,
     children:  [],   // filled by computeLayers
     layer:     0,    // BFS depth
     collapsed: false,
@@ -793,6 +918,7 @@ function buildFromRaw() {
 
   // Map columns
   nodeColorOverrides = {};
+  hiddenNodeIds = new Set();
   orgNodes = mapColumns(rawRows, colMap);
 
   // Compute hierarchy
@@ -806,7 +932,7 @@ function buildFromRaw() {
   if (roots.length > 1) {
     const virtual = {
       id: '__virtual_root__', name: '(Organisation)', title: '', dept: '',
-      managerId: '', email: '', avatar: '', layer: 0,
+      managerId: '', cost: 0, layer: 0,
       children: roots, collapsed: false, _virtual: true
     };
     roots.forEach(r => { r.layer += 1; r.managerId = '__virtual_root__'; });
@@ -832,6 +958,9 @@ function buildFromRaw() {
   const discardBtn = document.getElementById('btn-discard');
   discardBtn.classList.remove('hidden');
   discardBtn.style.display = 'inline-flex';
+
+  // Update company slot UI (shows Save button, highlights active slot)
+  if (typeof renderCompanySlots === 'function') renderCompanySlots();
 }
 
 function showUnassignedPanel(unassigned) {
@@ -871,11 +1000,12 @@ function buildDeptColors(nodes) {
 }
 
 // Expose for card rendering (Step 4)
+const DEFAULT_NODE_COLOR = '#94a3b8';
 function nodeColor(node) {
-  if (node._virtual) return '#94a3b8';
+  if (node._virtual) return DEFAULT_NODE_COLOR;
   const ov = nodeColorOverrides[node.id];
   if (ov !== undefined && colorLabels[ov]) return colorLabels[ov].color;
-  return deptColorMap[node.dept] || '#64748b';
+  return DEFAULT_NODE_COLOR;
 }
 
 console.log('[Step 3] mapColumns + computeLayers ready ✓');
@@ -955,82 +1085,88 @@ function autoCollapseDeep(roots, maxDepth) {
 //   We compute subtree widths bottom-up, then place nodes top-down.
 // ─────────────────────────────────────────────────────────────────
 function subtreeWidth(node) {
-  if (node.collapsed || !node.children.length) return NODE_W;
+  const vis = node.children.filter(c => !hiddenNodeIds.has(c.id));
+  if (node.collapsed || !vis.length) return NODE_W;
   const mode = childLayout(node);
 
   if (mode === 'horizontal') {
     return Math.max(NODE_W,
-      node.children.reduce((s, c) => s + subtreeWidth(c), 0)
-      + H_GAP * (node.children.length - 1));
+      vis.reduce((s, c) => s + subtreeWidth(c), 0)
+      + H_GAP * (vis.length - 1));
   }
 
   if (mode === 'vertical') {
     // Children indented to the right of the spine (parent centre-x).
     // Right side needs: SPINE_GAP + max child subtree width.
     // We make both halves equal so the parent card stays centred.
-    const maxChildW = Math.max(...node.children.map(c => subtreeWidth(c)));
+    const maxChildW = Math.max(...vis.map(c => subtreeWidth(c)));
     return 2 * Math.max(NODE_W / 2, SPINE_GAP + maxChildW);
   }
 
   // fishbone: children split left / right off the spine (both sides equal)
-  const maxChildW = Math.max(...node.children.map(c => subtreeWidth(c)));
+  const maxChildW = Math.max(...vis.map(c => subtreeWidth(c)));
   return 2 * Math.max(NODE_W / 2, SPINE_GAP + maxChildW);
 }
 
 function subtreeHeight(node) {
-  if (node.collapsed || !node.children.length) return NODE_H;
+  const vis = node.children.filter(c => !hiddenNodeIds.has(c.id));
+  if (node.collapsed || !vis.length) return NODE_H;
   const mode = childLayout(node);
 
   if (mode === 'horizontal') {
-    return NODE_H + V_GAP + Math.max(...node.children.map(c => subtreeHeight(c)));
+    return NODE_H + V_GAP + Math.max(...vis.map(c => subtreeHeight(c)));
   }
 
   if (mode === 'vertical') {
     // Children stacked: sum of each child's full subtree height + gaps
-    return NODE_H + node.children.reduce((s, c) => s + V_GAP + subtreeHeight(c), 0);
+    return NODE_H + vis.reduce((s, c) => s + V_GAP + subtreeHeight(c), 0);
   }
 
   // fishbone: left and right columns run in parallel — take the taller side
-  const leftH  = node.children.filter((_, i) => i % 2 === 0)
+  const leftH  = vis.filter((_, i) => i % 2 === 0)
                    .reduce((s, c) => s + V_GAP + subtreeHeight(c), 0);
-  const rightH = node.children.filter((_, i) => i % 2 !== 0)
+  const rightH = vis.filter((_, i) => i % 2 !== 0)
                    .reduce((s, c) => s + V_GAP + subtreeHeight(c), 0);
   return NODE_H + Math.max(leftH, rightH);
 }
+
+const CHART_PADDING = 60;   // breathing room on all sides of the chart
 
 function layout(roots) {
   const positions = new Map();
   let totalW = 0, totalH = 0;
 
-  // Root(s) sit side-by-side
-  let cursorX = 0;
+  // Root(s) sit side-by-side, offset by CHART_PADDING so the user can
+  // scroll upward / leftward and the top node is never glued to the edge.
+  let cursorX = CHART_PADDING;
   roots.forEach(root => {
     const w = subtreeWidth(root);
-    placeSubtree(root, cursorX, 0, w, positions);
+    placeSubtree(root, cursorX, CHART_PADDING, w, positions);
     cursorX += w + H_GAP * 2;
     totalH = Math.max(totalH, maxY(root, positions));
   });
-  totalW = cursorX;
+  totalW = cursorX + CHART_PADDING;
 
-  return { positions, totalW, totalH: totalH + NODE_H + V_GAP };
+  return { positions, totalW, totalH: totalH + NODE_H + CHART_PADDING };
 }
 
 function placeSubtree(node, x, y, allocW, positions) {
   // Centre this node's card in its allocated width
   positions.set(node.id, { x: x + allocW / 2 - NODE_W / 2, y });
 
-  if (node.collapsed || !node.children.length) return;
+  const visChildren = node.children.filter(c => !hiddenNodeIds.has(c.id));
+  if (node.collapsed || !visChildren.length) return;
 
   const mode   = childLayout(node);
   const spineX = x + allocW / 2;          // parent centre = spine X
 
   if (mode === 'horizontal') {
     // ── All children in one row, spread left-to-right ──────────────
-    const totalCW = node.children.reduce((s, c) => s + subtreeWidth(c), 0)
-                  + H_GAP * (node.children.length - 1);
+    const totalCW = visChildren.reduce((s, c) => s + subtreeWidth(c), 0)
+                  + H_GAP * (visChildren.length - 1);
     let childX = spineX - totalCW / 2;
     const childY = y + NODE_H + V_GAP;
-    node.children.forEach(child => {
+    visChildren.forEach(child => {
       const cw = subtreeWidth(child);
       placeSubtree(child, childX, childY, cw, positions);
       childX += cw + H_GAP;
@@ -1039,7 +1175,7 @@ function placeSubtree(node, x, y, allocW, positions) {
   } else if (mode === 'vertical') {
     // ── Children stacked vertically, indented to the right of spine ─
     let childY = y + NODE_H + V_GAP;
-    node.children.forEach(child => {
+    visChildren.forEach(child => {
       const cw = subtreeWidth(child);
       // Place each child so its subtree starts at spineX + SPINE_GAP
       placeSubtree(child, spineX + SPINE_GAP, childY, cw, positions);
@@ -1048,8 +1184,8 @@ function placeSubtree(node, x, y, allocW, positions) {
 
   } else {
     // ── Fishbone: even-indexed → left column, odd-indexed → right ──
-    const leftChildren  = node.children.filter((_, i) => i % 2 === 0);
-    const rightChildren = node.children.filter((_, i) => i % 2 !== 0);
+    const leftChildren  = visChildren.filter((_, i) => i % 2 === 0);
+    const rightChildren = visChildren.filter((_, i) => i % 2 !== 0);
 
     let leftY = y + NODE_H + V_GAP;
     leftChildren.forEach(child => {
@@ -1098,61 +1234,21 @@ function renderChart(roots) {
   // Draw connectors first (behind cards)
   drawConnectors(roots, positions);
 
-  // Render visible cards (virtual rendering threshold)
-  const VIRTUAL_THRESHOLD = 300; // above this, skip off-screen nodes initially
-  const useVirtual = orgNodes.length > VIRTUAL_THRESHOLD;
+  // Render all cards upfront (BFS)
   const area = document.getElementById('chart-area');
-  const vpW = area.clientWidth * 2;
-  const vpH = area.clientHeight * 2;
-
-  function isVisible(pos) {
-    if (!useVirtual) return true;
-    return pos.x < area.scrollLeft + vpW &&
-           pos.y < area.scrollTop  + vpH;
-  }
-
-  // Collect all visible nodes via BFS
+  area.onscroll = null;
   const queue = [...roots];
   while (queue.length) {
     const node = queue.shift();
+    if (hiddenNodeIds.has(node.id)) continue;
     const pos  = positions.get(node.id);
     if (!pos) continue;
-
-    if (isVisible(pos)) {
-      chartRoot.appendChild(createCard(node, pos));
-    }
-    if (!node.collapsed) node.children.forEach(c => queue.push(c));
-  }
-
-  // On scroll, reveal newly visible cards
-  if (useVirtual) {
-    area.onscroll = () => revealOnScroll(roots, positions, chartRoot, area);
+    chartRoot.appendChild(createCard(node, pos));
+    if (!node.collapsed) node.children.filter(c => !hiddenNodeIds.has(c.id)).forEach(c => queue.push(c));
   }
 }
 
 // Re-renders cards that have scrolled into view
-function revealOnScroll(roots, positions, chartRoot, area) {
-  const vpW = area.clientWidth + 400;
-  const vpH = area.clientHeight + 400;
-  const sl  = area.scrollLeft;
-  const st  = area.scrollTop;
-
-  const queue = [...roots];
-  while (queue.length) {
-    const node = queue.shift();
-    const pos  = positions.get(node.id);
-    if (!pos) continue;
-
-    const inView = pos.x + NODE_W > sl - 200 && pos.x < sl + vpW &&
-                   pos.y + NODE_H > st - 200 && pos.y < st + vpH;
-
-    if (inView && !document.getElementById('card-' + node.id)) {
-      chartRoot.appendChild(createCard(node, pos));
-    }
-    if (!node.collapsed) node.children.forEach(c => queue.push(c));
-  }
-}
-
 // ─────────────────────────────────────────────────────────────────
 // createCard(node, pos) → <div>
 //   Builds a single org-chart node card with avatar initial,
@@ -1204,13 +1300,12 @@ function createCard(node, pos) {
                  ${isSelected ? 'ring-2 ring-offset-2 ring-brand-500' : ''}
                  transition-shadow"
          style="border-color:${color}">
-      <!-- Avatar -->
+      <button class="bin-btn" title="Hide from chart" onclick="event.stopPropagation();hideNode('${node.id}')">🗑</button>
+      <!-- Avatar initials -->
       <div class="w-9 h-9 rounded-full flex items-center justify-center text-white
                   font-bold text-xs shrink-0"
            style="background:${color}">
-        ${node.avatar
-          ? `<img src="${node.avatar}" class="w-9 h-9 rounded-full object-cover" alt="" onerror="this.style.display='none'">`
-          : initials}
+        ${initials}
       </div>
       <!-- Text -->
       <div class="flex-1 min-w-0">
@@ -1280,6 +1375,56 @@ function rerenderChart() {
   renderChart(roots.length ? roots : orgNodes.filter(n => !n._unassigned && !n.managerId));
 }
 
+// ─────────────────────────────────────────────────────────────────
+// Level filter — show chart up to depth N (null = all)
+// ─────────────────────────────────────────────────────────────────
+let levelFilter = null;
+
+function getRoots() {
+  const validIds = new Set(orgNodes.map(n => n.id));
+  const roots = orgNodes.filter(n =>
+    !n._unassigned && (n.managerId === '0' || (!n.managerId && !validIds.has(n.managerId)))
+  );
+  return roots.length ? roots : orgNodes.filter(n => !n._unassigned && !n.managerId);
+}
+
+function chartMaxDepth() {
+  function depth(n) { return n.children.length ? 1 + Math.max(...n.children.map(depth)) : 1; }
+  return Math.max(...getRoots().map(depth));
+}
+
+function applyLevelFilter(level) {
+  levelFilter = level;
+  const label = document.getElementById('level-label');
+  if (label) label.textContent = level === null ? 'All' : level;
+
+  function setCollapsed(node, d) {
+    node.collapsed = level !== null && d >= level;
+    node.children.forEach(c => setCollapsed(c, d + 1));
+  }
+  getRoots().forEach(r => setCollapsed(r, 1));
+  rerenderChart();
+}
+
+(function wireLevelButtons() {
+  const btnUp   = document.getElementById('btn-level-up');
+  const btnDown = document.getElementById('btn-level-down');
+  if (!btnUp || !btnDown) return;
+
+  btnUp.addEventListener('click', () => {
+    if (levelFilter === null) return;                   // already showing all
+    const next = levelFilter + 1;
+    applyLevelFilter(next > chartMaxDepth() ? null : next);
+  });
+
+  btnDown.addEventListener('click', () => {
+    const max = chartMaxDepth();
+    const current = levelFilter === null ? max : levelFilter;
+    if (current <= 1) return;                          // can't go below level 1
+    applyLevelFilter(current - 1);
+  });
+})();
+
 function cardToggleOne(id) {
   const node = orgNodes.find(n => n.id === id);
   if (!node) return;
@@ -1324,8 +1469,10 @@ function drawConnectors(roots, positions) {
   }
 
   function drawEdges(node) {
+    if (hiddenNodeIds.has(node.id)) return;
     const pPos = positions.get(node.id);
-    if (!pPos || node.collapsed || !node.children.length) return;
+    const visChildren = node.children.filter(c => !hiddenNodeIds.has(c.id));
+    if (!pPos || node.collapsed || !visChildren.length) return;
 
     const px    = pPos.x + NODE_W / 2;   // parent centre-x = spine X
     const py    = pPos.y + NODE_H;        // parent bottom-y
@@ -1334,12 +1481,13 @@ function drawConnectors(roots, positions) {
 
     if (mode === 'horizontal') {
       // ── Bus connector: horizontal bus + drops ─────────────────────
-      const childData = node.children.map(c => {
+      const childData = visChildren.map(c => {
         const p = positions.get(c.id);
         return p ? { node: c, cx: p.x + NODE_W / 2, cy: p.y } : null;
       }).filter(Boolean);
       if (!childData.length) { node.children.forEach(c => drawEdges(c)); return; }
 
+      if (!childData.length) return;
       const busY     = childData[0].cy - Math.round(V_GAP * 0.5);
       const xs       = childData.map(d => d.cx);
       const busLeft  = Math.min(px, ...xs);
@@ -1352,8 +1500,8 @@ function drawConnectors(roots, positions) {
 
     } else if (mode === 'vertical') {
       // ── Spine on left, horizontal arms to each child ──────────────
-      const childPositions = node.children.map(c => positions.get(c.id)).filter(Boolean);
-      if (!childPositions.length) { node.children.forEach(c => drawEdges(c)); return; }
+      const childPositions = visChildren.map(c => positions.get(c.id)).filter(Boolean);
+      if (!childPositions.length) { visChildren.forEach(c => drawEdges(c)); return; }
 
       // Spine runs from parent bottom to the mid-height of the last child
       const lastPos   = childPositions[childPositions.length - 1];
@@ -1377,7 +1525,7 @@ function drawConnectors(roots, positions) {
       const spineEnd = Math.max(...allPos.map(p => p.y + NODE_H / 2));
       makeLine(px, py, px, spineEnd, color);
 
-      node.children.forEach((child, i) => {
+      visChildren.forEach((child, i) => {
         const cPos = positions.get(child.id);
         if (!cPos) return;
         const armY    = cPos.y + NODE_H / 2;
@@ -1389,8 +1537,8 @@ function drawConnectors(roots, positions) {
       });
     }
 
-    // Recurse into all children regardless of mode
-    node.children.forEach(child => drawEdges(child));
+    // Recurse into all visible children
+    visChildren.forEach(child => drawEdges(child));
   }
 
   roots.forEach(r => drawEdges(r));
@@ -1409,8 +1557,7 @@ function showNodeDetail(node) {
     ['Name',  node.name],
     ['Title', node.title],
     ['Dept',  node.dept],
-    ['Email', node.email ? `<a href="mailto:${escHtml(node.email)}"
-               class="text-brand-500 underline">${escHtml(node.email)}</a>` : ''],
+    ['Cost',  node.cost ? node.cost.toLocaleString() : ''],
     ['ID',    node.id],
     ['Reports', node.children.length],
   ].filter(([,v]) => v);
@@ -1468,12 +1615,12 @@ function renderColorLabels() {
     <div class="flex items-center gap-1 w-full overflow-hidden">
       <input type="color" value="${cl.color}"
              class="w-5 h-5 rounded cursor-pointer border-0 p-0 shrink-0"
-             onchange="colorLabels[${i}].color=this.value; _rerenderIfChart(); renderColorLabels();" />
+             onchange="colorLabels[${i}].color=this.value; _rerenderIfChart(); renderColorLabels(); if(typeof autoSaveActiveSlot==='function')autoSaveActiveSlot();" />
       <input type="text" value="${cl.label.replace(/"/g,'&amp;quot;')}"
              class="flex-1 min-w-0 text-xs border border-gray-200 dark:border-gray-600 rounded px-1 py-0.5
                      bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
-             oninput="colorLabels[${i}].label=this.value; _rerenderIfChart();" />
-      <button onclick="colorLabels.splice(${i},1); renderColorLabels(); _rerenderIfChart();"
+             oninput="colorLabels[${i}].label=this.value; _rerenderIfChart(); if(typeof autoSaveActiveSlot==='function')autoSaveActiveSlot();" />
+      <button onclick="colorLabels.splice(${i},1); renderColorLabels(); _rerenderIfChart(); if(typeof autoSaveActiveSlot==='function')autoSaveActiveSlot();"
               class="shrink-0 p-1 rounded text-gray-400 hover:text-red-400 hover:bg-red-50
                      dark:hover:bg-red-900/20 transition-colors" title="Remove label">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none"
@@ -1490,6 +1637,7 @@ function addColorLabel() {
   const EXTRA = ['#6366f1','#14b8a6','#f43f5e','#a855f7','#0ea5e9','#84cc16'];
   colorLabels.push({ color: EXTRA[colorLabels.length % EXTRA.length], label: 'Label ' + (colorLabels.length + 1) });
   renderColorLabels();
+  if (typeof autoSaveActiveSlot === 'function') autoSaveActiveSlot();
 }
 
 function _rerenderIfChart() {
@@ -1617,6 +1765,53 @@ function applyColorLabel(node, labelIdx, scope) {
     }
   });
   _rerenderIfChart();
+  if (typeof autoSaveActiveSlot === 'function') autoSaveActiveSlot();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// hideNode(id) / unhideNode(id) / renderHiddenPanel()
+// ─────────────────────────────────────────────────────────────────
+function hideNode(id) {
+  hiddenNodeIds.add(id);
+  renderHiddenPanel();
+  rerenderChart();
+  if (typeof autoSaveActiveSlot === 'function') autoSaveActiveSlot();
+}
+
+function unhideNode(id) {
+  hiddenNodeIds.delete(id);
+  renderHiddenPanel();
+  rerenderChart();
+  if (typeof autoSaveActiveSlot === 'function') autoSaveActiveSlot();
+}
+
+function toggleSidebarSection(bodyId, chevronId) {
+  const body    = document.getElementById(bodyId);
+  const chevron = document.getElementById(chevronId);
+  const collapsed = body.style.display === 'none';
+  body.style.display    = collapsed ? '' : 'none';
+  chevron.style.transform = collapsed ? '' : 'rotate(-90deg)';
+}
+
+function renderHiddenPanel() {
+  const panel = document.getElementById('hidden-nodes-panel');
+  const list  = document.getElementById('hidden-nodes-list');
+  if (!hiddenNodeIds.size) { panel.classList.add('hidden'); return; }
+  panel.classList.remove('hidden');
+  const countEl = document.getElementById('hidden-count');
+  if (countEl) countEl.textContent = hiddenNodeIds.size;
+  const items = [...hiddenNodeIds].map(id => {
+    const node = orgNodes.find(n => n.id === id);
+    const name = node ? escHtml(node.name) : escHtml(id);
+    return `<div class="flex items-center justify-between gap-1 py-0.5">
+      <span class="text-xs text-gray-600 dark:text-gray-400 truncate flex-1">${name}</span>
+      <button onclick="unhideNode('${id.replace(/'/g, "\'")}')"
+              class="text-[10px] text-brand-500 hover:text-brand-700 shrink-0 font-medium">
+        Show
+      </button>
+    </div>`;
+  }).join('');
+  list.innerHTML = items;
 }
 
 // Initialise the sidebar list on load
@@ -1666,7 +1861,8 @@ window.setupChart = function(roots) {
 // Discard button — resets the entire chart back to empty state
 // ─────────────────────────────────────────────────────────────────
 document.getElementById('btn-discard').addEventListener('click', function () {
-  rawRows = []; colMap = {}; orgNodes = []; nodeColorOverrides = {}; closeColorPicker();
+  rawRows = []; colMap = {}; orgNodes = []; nodeColorOverrides = {}; hiddenNodeIds = new Set(); closeColorPicker();
+  document.getElementById('hidden-nodes-panel').classList.add('hidden');
   const root = document.getElementById('chart-root');
   root.querySelectorAll('.node-card').forEach(el => el.remove());
   document.getElementById('svg-connectors').innerHTML = '';
@@ -1681,6 +1877,8 @@ document.getElementById('btn-discard').addEventListener('click', function () {
   document.getElementById('node-detail').classList.add('hidden');
   this.classList.add('hidden');
   applyZoom(1);
+  // Deactivate company slot
+  if (typeof activeSlotIndex !== 'undefined') { activeSlotIndex = -1; renderCompanySlots(); }
 });
 
 // ─────────────────────────────────────────────────────────────────
@@ -1811,6 +2009,193 @@ console.log('OrgChart Wizard fully loaded ✓');
     positionTip(e);
   });
 })();
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     COMPANY PERSISTENCE — up to 6 saved organisations in localStorage
+════════════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+const SLOTS_COUNT = 6;
+const SLOTS_KEY   = 'orgchart_companies';
+let activeSlotIndex = -1;
+let _restoringSlot  = null; // temp state during slot restore
+
+// ── Storage helpers ──────────────────────────────────────────────
+function getSlots() {
+  try { return JSON.parse(localStorage.getItem(SLOTS_KEY) || '[]'); }
+  catch { return []; }
+}
+function setSlots(slots) {
+  localStorage.setItem(SLOTS_KEY, JSON.stringify(slots));
+}
+
+// ── Save current chart to a slot ─────────────────────────────────
+function saveToSlot(index, name) {
+  if (!rawRows.length) { showError('No chart loaded to save'); return; }
+  const slots = getSlots();
+  while (slots.length <= index) slots.push(null);
+  slots[index] = {
+    name,
+    rawRows,
+    colMap,
+    colorLabels:        JSON.parse(JSON.stringify(colorLabels)),
+    nodeColorOverrides: Object.assign({}, nodeColorOverrides),
+    hiddenNodeIds:      [...hiddenNodeIds],
+  };
+  setSlots(slots);
+  activeSlotIndex = index;
+  renderCompanySlots();
+}
+
+// ── Auto-save when state changes and a slot is active ────────────
+function autoSaveActiveSlot() {
+  if (activeSlotIndex < 0 || !rawRows.length) return;
+  const slots = getSlots();
+  const slot  = slots[activeSlotIndex];
+  if (!slot) return;
+  saveToSlot(activeSlotIndex, slot.name);
+}
+
+// ── Load a slot ──────────────────────────────────────────────────
+function loadSlot(index) {
+  const slots = getSlots();
+  const slot  = slots[index];
+  if (!slot) return;
+
+  // Restore raw data
+  rawRows = slot.rawRows;
+  colMap  = slot.colMap;
+  if (slot.colorLabels) colorLabels = JSON.parse(JSON.stringify(slot.colorLabels));
+
+  // Stash overrides — buildFromRaw() will reset them, we re-apply after
+  _restoringSlot = {
+    nodeColorOverrides: Object.assign({}, slot.nodeColorOverrides || {}),
+    hiddenNodeIds:      new Set(slot.hiddenNodeIds || []),
+  };
+
+  buildFromRaw(); // resets nodeColorOverrides & hiddenNodeIds, renders chart
+
+  // Re-apply persisted state
+  if (_restoringSlot) {
+    Object.assign(nodeColorOverrides, _restoringSlot.nodeColorOverrides);
+    hiddenNodeIds = _restoringSlot.hiddenNodeIds;
+    _restoringSlot = null;
+    rerenderChart();
+    renderHiddenPanel();
+    renderColorLabels();
+  }
+
+  activeSlotIndex = index;
+  renderCompanySlots();
+}
+
+// ── Delete a slot ────────────────────────────────────────────────
+function deleteSlot(index) {
+  const slots = getSlots();
+  slots[index] = null;
+  setSlots(slots);
+  if (activeSlotIndex === index) activeSlotIndex = -1;
+  renderCompanySlots();
+}
+
+// ── Render company dropdown ──────────────────────────────────────
+function renderCompanySlots() {
+  const sel = document.getElementById('company-select');
+  if (!sel) return;
+  const slots  = getSlots();
+  const filled = slots.filter(Boolean);
+
+  let html = `<option value="-1">${filled.length ? '— Select company —' : '— No companies saved —'}</option>`;
+  slots.forEach((slot, i) => {
+    if (!slot) return;
+    html += `<option value="${i}"${i === activeSlotIndex ? ' selected' : ''}>${escHtml(slot.name)}</option>`;
+  });
+  sel.innerHTML = html;
+
+  // Delete button: only when a company is active
+  const delBtn = document.getElementById('btn-delete-company');
+  if (delBtn) {
+    delBtn.classList.toggle('hidden', activeSlotIndex < 0);
+    delBtn.classList.toggle('flex',   activeSlotIndex >= 0);
+  }
+}
+
+function onCompanySelectChange(sel) {
+  const index = parseInt(sel.value, 10);
+  if (isNaN(index) || index < 0) { activeSlotIndex = -1; renderCompanySlots(); return; }
+  loadSlot(index);
+}
+
+// ── Save modal ───────────────────────────────────────────────────
+function openSaveCurrentModal() {
+  if (!rawRows || !rawRows.length) { showError('Load a chart first'); return; }
+  const slots = getSlots();
+
+  // If a company is already active, overwrite silently — no modal needed
+  if (activeSlotIndex >= 0 && slots[activeSlotIndex]) {
+    saveToSlot(activeSlotIndex, slots[activeSlotIndex].name);
+    showSuccess('Saved');
+    return;
+  }
+
+  const opts = Array.from({ length: SLOTS_COUNT }, (_, i) => {
+    const s   = slots[i];
+    const lbl = s ? `${escHtml(s.name)} (overwrite)` : `Empty slot ${i + 1}`;
+    const sel = (!s && i === slots.findIndex(x => !x)) ? ' selected' : '';
+    return `<option value="${i}"${sel}>${lbl}</option>`;
+  }).join('');
+  const curName = '';
+
+  openModal(`
+    <h2 class="text-xl font-bold mb-4">Save Company Chart</h2>
+    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Company name</label>
+    <input id="slot-name-input" type="text" value="${escHtml(curName)}"
+      placeholder="e.g. Acme Corp"
+      class="input-field w-full text-sm mb-4" />
+    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Save to</label>
+    <select id="slot-pick-select" class="input-field w-full text-sm mb-6">${opts}</select>
+    <div class="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+      <button onclick="closeModal()"
+        class="px-6 py-2.5 rounded-xl border-2 border-gray-300 dark:border-gray-600
+               text-gray-700 dark:text-gray-300 text-sm font-semibold
+               hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+        Cancel
+      </button>
+      <button onclick="confirmSaveSlot()"
+        class="px-8 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-700 text-white
+               font-bold text-sm shadow-lg hover:shadow-xl hover:scale-105 transition-all">
+        Save
+      </button>
+    </div>
+  `);
+  setTimeout(() => document.getElementById('slot-name-input')?.focus(), 50);
+}
+
+function confirmSaveSlot() {
+  const nameEl = document.getElementById('slot-name-input');
+  const name   = nameEl ? nameEl.value.trim() : '';
+  if (!name) { showError('Please enter a company name'); return; }
+  const pickEl = document.getElementById('slot-pick-select');
+  const index  = pickEl ? parseInt(pickEl.value, 10) : 0;
+  saveToSlot(index, name);
+  closeModal();
+}
+
+function deleteActiveSlotConfirm() {
+  if (activeSlotIndex < 0) return;
+  const slots = getSlots();
+  const slot  = slots[activeSlotIndex];
+  if (!slot) return;
+  if (!confirm(`Remove "${slot.name}" from saved companies?`)) return;
+  deleteSlot(activeSlotIndex);
+}
+
+// ── Bootstrap on page load ───────────────────────────────────────
+renderCompanySlots();
+
+console.log('[Companies] Slot system ready ✓');
 </script>
 
 </body>
