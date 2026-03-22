@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>OrgChart Wizard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        colors: {
+          brand: { 50:'#f0f9ff', 500:'#0ea5e9', 700:'#0369a1', 900:'#0c4a6e' }
+        }
+      }
+    }
+  }
+</script>
+<style>
+  /* ── Print styles ── */
+  @media print {
+    #toolbar, #sidebar, #modal-overlay { display: none !important; }
+    #chart-area { overflow: visible !important; width: 100% !important; }
+    .node-card { break-inside: avoid; }
+  }
+  /* ── Smooth dark transition ── */
+  *, *::before, *::after { transition: background-color .2s, color .2s, border-color .2s; }
+  /* ── Chart canvas ── */
+  #chart-root { position: relative; }
+  /* ── Node card ── */
+  .node-card {
+    position: absolute;
+    cursor: pointer;
+    user-select: none;
+  }
+  /* ── SVG connector layer ── */
+  #svg-connectors {
+    position: absolute;
+    top: 0; left: 0;
+    pointer-events: none;
+    overflow: visible;
+  }
+  /* ── Collapsed branch indicator ── */
+  .expand-btn {
+    position: absolute;
+    bottom: -10px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+  }
+  /* ── Scrollable chart area ── */
+  #chart-area {
+    overflow: auto;
+    position: relative;
+    flex: 1;
+  }
+  /* ── Modal ── */
+  #modal-overlay {
+    backdrop-filter: blur(4px);
+  }
+</style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen flex flex-col font-sans">
+
+<!-- ══════════════════════════════════════════════
+     TOOLBAR
+════════════════════════════════════════════════ -->
+<header id="toolbar"
+  class="flex items-center gap-3 px-4 py-2 bg-white dark:bg-gray-800 shadow z-20 flex-wrap">
+
+  <span class="font-bold text-brand-700 dark:text-brand-500 text-lg mr-2 whitespace-nowrap">
+    ⬡ OrgChart Wizard
+  </span>
+
+  <!-- File upload -->
+  <label class="btn-primary cursor-pointer flex items-center gap-1">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12V4m0 0L8 8m4-4l4 4"/>
+    </svg>
+    Import Excel / CSV
+    <input id="file-input" type="file" accept=".xlsx,.xls,.csv" class="hidden"/>
+  </label>
+
+  <!-- Dummy data -->
+  <button id="btn-demo" class="btn-secondary">Demo (50 nodes)</button>
+
+  <div class="flex-1"></div>
+
+  <!-- Search -->
+  <input id="search-box" type="search" placeholder="Search name / title…"
+    class="input-field w-44 text-sm"/>
+
+  <!-- Zoom -->
+  <div class="flex items-center gap-1">
+    <button id="btn-zoom-out" class="btn-icon" title="Zoom out">−</button>
+    <span id="zoom-label" class="text-xs w-10 text-center">100%</span>
+    <button id="btn-zoom-in"  class="btn-icon" title="Zoom in">+</button>
+    <button id="btn-zoom-fit" class="btn-icon text-xs" title="Fit">Fit</button>
+  </div>
+
+  <!-- Export -->
+  <button id="btn-export-png" class="btn-secondary text-sm">↓ PNG</button>
+  <button id="btn-print"      class="btn-secondary text-sm">⎙ Print</button>
+
+  <!-- Dark mode -->
+  <button id="btn-dark" class="btn-icon" title="Toggle dark mode">🌙</button>
+</header>
+
+<!-- ══════════════════════════════════════════════
+     MAIN AREA
+════════════════════════════════════════════════ -->
+<main class="flex flex-1 overflow-hidden">
+
+  <!-- Sidebar: stats / legend -->
+  <aside id="sidebar"
+    class="w-52 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700
+           p-3 flex flex-col gap-4 text-sm overflow-y-auto shrink-0">
+
+    <div>
+      <p class="font-semibold mb-1 text-gray-500 dark:text-gray-400 uppercase tracking-wide text-xs">Stats</p>
+      <ul id="stats-list" class="space-y-1 text-gray-700 dark:text-gray-300">
+        <li>Nodes: <span id="stat-nodes" class="font-bold">—</span></li>
+        <li>Depth: <span id="stat-depth" class="font-bold">—</span></li>
+        <li>Layers: <span id="stat-layers" class="font-bold">—</span></li>
+      </ul>
+    </div>
+
+    <div>
+      <p class="font-semibold mb-1 text-gray-500 dark:text-gray-400 uppercase tracking-wide text-xs">Legend</p>
+      <div id="legend-list" class="space-y-1"></div>
+    </div>
+
+    <div id="node-detail" class="hidden">
+      <p class="font-semibold mb-1 text-gray-500 dark:text-gray-400 uppercase tracking-wide text-xs">Selected</p>
+      <div id="node-detail-body" class="space-y-1 text-gray-700 dark:text-gray-300"></div>
+    </div>
+  </aside>
+
+  <!-- Chart canvas -->
+  <div id="chart-area" class="bg-gray-50 dark:bg-gray-950">
+    <div id="chart-root">
+      <svg id="svg-connectors"></svg>
+      <!-- nodes injected here -->
+    </div>
+    <!-- Empty state -->
+    <div id="empty-state"
+      class="absolute inset-0 flex flex-col items-center justify-center gap-4 text-gray-400 dark:text-gray-600">
+      <svg class="w-20 h-20 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+          d="M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1m4-4a4 4 0 100-8 4 4 0 000 8z"/>
+      </svg>
+      <p class="text-lg font-medium">Import a file or try Demo data</p>
+      <p class="text-sm">Supports .xlsx · .xls · .csv</p>
+    </div>
+  </div>
+</main>
+
+<!-- ══════════════════════════════════════════════
+     ERROR TOAST
+════════════════════════════════════════════════ -->
+<div id="error-toast"
+  class="hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-50
+         bg-red-600 text-white px-5 py-2 rounded-full shadow-lg text-sm font-medium">
+</div>
+
+<!-- ══════════════════════════════════════════════
+     MODAL  (wizard lives here — filled by JS)
+════════════════════════════════════════════════ -->
+<div id="modal-overlay"
+  class="hidden fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-4">
+  <div id="modal-box"
+    class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl
+           max-h-[90vh] overflow-y-auto p-6 relative">
+    <button id="modal-close"
+      class="absolute top-3 right-3 text-gray-400 hover:text-gray-700
+             dark:hover:text-gray-200 text-2xl leading-none">&times;</button>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SHARED BUTTON STYLES (Tailwind @apply trick)
+     We use a tiny <style> block so we don't repeat classes everywhere
+════════════════════════════════════════════════ -->
+<style>
+  .btn-primary {
+    @apply bg-brand-500 hover:bg-brand-700 text-white text-sm font-medium
+           px-3 py-1.5 rounded-lg shadow-sm;
+  }
+  .btn-secondary {
+    @apply bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600
+           hover:bg-gray-50 dark:hover:bg-gray-600 text-sm font-medium
+           px-3 py-1.5 rounded-lg shadow-sm;
+  }
+  .btn-icon {
+    @apply w-8 h-8 flex items-center justify-center rounded-lg
+           bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600
+           hover:bg-gray-100 dark:hover:bg-gray-600 font-bold text-sm;
+  }
+  .input-field {
+    @apply px-2 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600
+           bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500;
+  }
+</style>
+
+<!-- ══════════════════════════════════════════════
+     SCRIPTS  (loaded in order, filled in next steps)
+════════════════════════════════════════════════ -->
+
+<!-- SheetJS for Excel/CSV parsing -->
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+
+<!-- html2canvas for PNG export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
+  crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════════════════
+//  STEP 1 — Bootstrap: dark-mode, toolbar wiring, modal helpers
+// ═══════════════════════════════════════════════════════════════
+
+// ── Dark mode ──────────────────────────────────────────────────
+const html = document.documentElement;
+const btnDark = document.getElementById('btn-dark');
+function applyTheme(dark) {
+  html.classList.toggle('dark', dark);
+  btnDark.textContent = dark ? '☀️' : '🌙';
+  localStorage.setItem('theme', dark ? 'dark' : 'light');
+}
+applyTheme(localStorage.getItem('theme') === 'dark');
+btnDark.addEventListener('click', () => applyTheme(!html.classList.contains('dark')));
+
+// ── Toast helper ───────────────────────────────────────────────
+const toastEl = document.getElementById('error-toast');
+let toastTimer;
+function showError(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.remove('hidden');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.add('hidden'), 4000);
+}
+
+// ── Modal helpers ──────────────────────────────────────────────
+const modalOverlay  = document.getElementById('modal-overlay');
+const modalContent  = document.getElementById('modal-content');
+const modalClose    = document.getElementById('modal-close');
+
+function openModal(html) {
+  modalContent.innerHTML = html;
+  modalOverlay.classList.remove('hidden');
+}
+function closeModal() {
+  modalOverlay.classList.add('hidden');
+  modalContent.innerHTML = '';
+}
+modalClose.addEventListener('click', closeModal);
+modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeModal(); });
+
+// ── Zoom state ─────────────────────────────────────────────────
+let zoomLevel = 1.0;
+const chartRoot  = document.getElementById('chart-root');
+const zoomLabel  = document.getElementById('zoom-label');
+
+function applyZoom(z) {
+  zoomLevel = Math.min(2, Math.max(0.25, z));
+  chartRoot.style.transform = `scale(${zoomLevel})`;
+  chartRoot.style.transformOrigin = 'top left';
+  zoomLabel.textContent = Math.round(zoomLevel * 100) + '%';
+}
+document.getElementById('btn-zoom-in') .addEventListener('click', () => applyZoom(zoomLevel + 0.1));
+document.getElementById('btn-zoom-out').addEventListener('click', () => applyZoom(zoomLevel - 0.1));
+document.getElementById('btn-zoom-fit').addEventListener('click', fitToView);
+
+function fitToView() {
+  const area = document.getElementById('chart-area');
+  const w = chartRoot.scrollWidth || 1;
+  const h = chartRoot.scrollHeight || 1;
+  const z = Math.min(area.clientWidth / w, area.clientHeight / h, 1);
+  applyZoom(z);
+}
+
+// ── Print ──────────────────────────────────────────────────────
+document.getElementById('btn-print').addEventListener('click', () => window.print());
+
+// ── PNG export (placeholder — wired up in step 4) ─────────────
+document.getElementById('btn-export-png').addEventListener('click', exportPNG);
+function exportPNG() {
+  if (typeof html2canvas === 'undefined') { showError('html2canvas not loaded'); return; }
+  html2canvas(chartRoot, { backgroundColor: null, scale: 2 }).then(canvas => {
+    const a = document.createElement('a');
+    a.download = 'orgchart.png';
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+  }).catch(() => showError('PNG export failed'));
+}
+
+console.log('[Step 1] Skeleton ready ✓');
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     STEP 2 — parseExcelWizard() + Demo data + Wizard modal UI
+════════════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ── Global state ────────────────────────────────────────────────
+// rawRows  : Array of plain objects (one per spreadsheet row)
+// colMap   : { id, name, title, managerId, dept, email, avatar }
+// orgNodes : final processed node array
+let rawRows  = [];
+let colMap   = {};
+let orgNodes = [];
+
+// ── File input wiring ────────────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  this.value = ''; // allow re-selecting same file
+  parseExcelWizard(file);
+});
+
+// ─────────────────────────────────────────────────────────────────
+// parseExcelWizard(file)
+//   Reads .xlsx/.xls/.csv via SheetJS → extracts headers → opens
+//   the column-mapping wizard modal so the user assigns fields.
+// ─────────────────────────────────────────────────────────────────
+function parseExcelWizard(file) {
+  if (typeof XLSX === 'undefined') { showError('SheetJS not loaded yet — try again'); return; }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb   = XLSX.read(data, { type: 'array' });
+      const ws   = wb.Sheets[wb.SheetNames[0]];           // first sheet
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' }); // objects
+
+      if (!rows.length) { showError('Sheet is empty'); return; }
+      rawRows = rows;
+
+      // Extract header names from first row keys
+      const headers = Object.keys(rows[0]);
+      openWizardModal(headers);
+    } catch(err) {
+      showError('Failed to read file: ' + err.message);
+    }
+  };
+  reader.onerror = () => showError('File read error');
+  reader.readAsArrayBuffer(file);
+}
+
+// ─────────────────────────────────────────────────────────────────
+// openWizardModal(headers)
+//   Renders a table: detected column names on the left,
+//   <select> dropdowns on the right so users map columns to fields.
+//   Required fields: id, name, managerId
+//   Optional fields: title, dept, email, avatar
+// ─────────────────────────────────────────────────────────────────
+const FIELD_DEFS = [
+  { key: 'id',        label: 'Employee ID',  required: true,  hint: 'Unique identifier for each person' },
+  { key: 'name',      label: 'Full Name',    required: true,  hint: 'Display name on the card' },
+  { key: 'managerId', label: 'Manager ID',   required: true,  hint: 'ID of this person\'s direct manager' },
+  { key: 'title',     label: 'Job Title',    required: false, hint: 'Role / position' },
+  { key: 'dept',      label: 'Department',   required: false, hint: 'Used for colour-coding' },
+  { key: 'email',     label: 'Email',        required: false, hint: 'Shown in detail panel' },
+  { key: 'avatar',    label: 'Avatar URL',   required: false, hint: 'Photo URL (optional)' },
+];
+
+// Auto-guess which spreadsheet column maps to which field
+function guessMapping(headers) {
+  const lower = headers.map(h => h.toLowerCase().trim());
+  const patterns = {
+    id:        [/^id$/, /employee.?id/, /emp.?id/, /staff.?id/],
+    name:      [/^name$/, /full.?name/, /employee.?name/, /display.?name/],
+    managerId: [/manager.?id/, /mgr.?id/, /reports.?to/, /parent.?id/, /supervisor.?id/],
+    title:     [/^title$/, /job.?title/, /position/, /role/],
+    dept:      [/^dept$/, /department/, /team/, /group/, /division/],
+    email:     [/^email$/, /e.?mail/, /contact/],
+    avatar:    [/^avatar$/, /photo/, /picture/, /image/, /url/],
+  };
+
+  const guess = {};
+  for (const [field, pats] of Object.entries(patterns)) {
+    for (const pat of pats) {
+      const idx = lower.findIndex(h => pat.test(h));
+      if (idx !== -1) { guess[field] = headers[idx]; break; }
+    }
+  }
+  return guess;
+}
+
+function openWizardModal(headers) {
+  const guess = guessMapping(headers);
+  const optionsHtml = ['(none)', ...headers]
+    .map(h => `<option value="${h}">${h}</option>`).join('');
+
+  function selectsRow(field, label, required, hint) {
+    const sel = guess[field] || '(none)';
+    const opts = ['(none)', ...headers].map(h =>
+      `<option value="${h}"${h === sel ? ' selected' : ''}>${h}</option>`
+    ).join('');
+    return `
+      <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750">
+        <td class="py-2 pr-3 font-medium text-sm whitespace-nowrap">
+          ${label}${required ? ' <span class="text-red-500">*</span>' : ''}
+        </td>
+        <td class="py-2 pr-3 text-xs text-gray-400 dark:text-gray-500">${hint}</td>
+        <td class="py-2">
+          <select data-field="${field}"
+            class="input-field text-sm w-full">
+            ${opts}
+          </select>
+        </td>
+      </tr>`;
+  }
+
+  const rowsHtml = FIELD_DEFS.map(f =>
+    selectsRow(f.key, f.label, f.required, f.hint)
+  ).join('');
+
+  const previewRows = rawRows.slice(0, 3).map(r =>
+    `<tr>${headers.slice(0,6).map(h =>
+      `<td class="px-2 py-1 border border-gray-200 dark:border-gray-700 text-xs truncate max-w-[100px]">${r[h] ?? ''}</td>`
+    ).join('')}</tr>`
+  ).join('');
+
+  openModal(`
+    <h2 class="text-xl font-bold mb-1">Column Mapping Wizard</h2>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+      Detected <strong>${headers.length}</strong> columns and
+      <strong>${rawRows.length}</strong> rows.
+      Map each field to a spreadsheet column, then click Build Chart.
+    </p>
+
+    <!-- Data preview -->
+    <details class="mb-4 text-sm">
+      <summary class="cursor-pointer text-brand-500 font-medium">Preview first 3 rows ▾</summary>
+      <div class="overflow-x-auto mt-2">
+        <table class="text-xs border-collapse">
+          <thead>
+            <tr>${headers.slice(0,6).map(h =>
+              `<th class="px-2 py-1 border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 font-semibold">${h}</th>`
+            ).join('')}</tr>
+          </thead>
+          <tbody>${previewRows}</tbody>
+        </table>
+        ${headers.length > 6 ? `<p class="mt-1 text-gray-400">… and ${headers.length - 6} more columns</p>` : ''}
+      </div>
+    </details>
+
+    <!-- Mapping table -->
+    <table class="w-full mb-4">
+      <thead>
+        <tr class="text-left text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide">
+          <th class="pb-1 pr-3">Field</th>
+          <th class="pb-1 pr-3">Description</th>
+          <th class="pb-1">Your Column</th>
+        </tr>
+      </thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+
+    <p class="text-xs text-gray-400 mb-4">Fields marked <span class="text-red-500">*</span> are required.</p>
+
+    <div class="flex justify-end gap-2">
+      <button onclick="closeModal()"
+        class="btn-secondary">Cancel</button>
+      <button id="wizard-build-btn"
+        class="btn-primary">Build Chart →</button>
+    </div>
+  `);
+
+  // Wire the Build button (inside modal DOM)
+  document.getElementById('wizard-build-btn').addEventListener('click', () => {
+    const selects = modalContent.querySelectorAll('select[data-field]');
+    const map = {};
+    selects.forEach(s => {
+      if (s.value !== '(none)') map[s.dataset.field] = s.value;
+    });
+
+    // Validate required fields
+    const missing = FIELD_DEFS.filter(f => f.required && !map[f.key]).map(f => f.label);
+    if (missing.length) {
+      showError('Required: ' + missing.join(', '));
+      return;
+    }
+
+    colMap = map;
+    closeModal();
+    buildFromRaw();  // defined in Step 3
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Demo data — 50 synthetic employees across 5 departments
+// ─────────────────────────────────────────────────────────────────
+const DEPTS = ['Engineering','Product','Design','Marketing','Operations'];
+const COLORS_DEPT = {
+  Engineering: '#3b82f6', Product: '#8b5cf6', Design: '#ec4899',
+  Marketing: '#f59e0b', Operations: '#10b981'
+};
+const FIRST = ['Alice','Bob','Carol','Dave','Eve','Frank','Grace','Hank','Iris','Jack',
+               'Karen','Leo','Mia','Ned','Opal','Pat','Quinn','Rose','Sam','Tara'];
+const LAST  = ['Smith','Jones','Lee','Brown','Clark','Davis','Evans','Foster','Green','Hall'];
+
+function makeDemoName() {
+  return FIRST[Math.floor(Math.random()*FIRST.length)] + ' ' +
+         LAST [Math.floor(Math.random()*LAST.length)];
+}
+
+const TITLES_BY_DEPT = {
+  Engineering: ['CTO','VP Engineering','Engineering Manager','Senior Engineer','Engineer','Junior Engineer'],
+  Product:     ['CPO','VP Product','Product Manager','Associate PM','Product Analyst'],
+  Design:      ['VP Design','Design Lead','Senior Designer','Designer','UI/UX Intern'],
+  Marketing:   ['CMO','VP Marketing','Marketing Manager','Marketing Specialist','Content Writer'],
+  Operations:  ['COO','VP Operations','Operations Manager','Operations Analyst','Coordinator'],
+};
+
+document.getElementById('btn-demo').addEventListener('click', loadDemoData);
+
+function loadDemoData() {
+  // Build a 50-node hierarchy: CEO → dept heads → managers → ICs
+  const rows = [];
+  let idCtr = 1;
+
+  // CEO
+  rows.push({ id:'1', name:'Morgan CEO', title:'CEO', dept:'Operations',
+               managerId:'', email:'ceo@corp.com' });
+
+  DEPTS.forEach((dept, di) => {
+    const headId = String(++idCtr);
+    const titles = TITLES_BY_DEPT[dept];
+    rows.push({ id: headId, name: makeDemoName(), title: titles[0],
+                dept, managerId: '1', email: `head${di}@corp.com` });
+
+    // 1-2 managers per dept
+    const mgrs = di % 2 === 0 ? 2 : 1;
+    for (let m = 0; m < mgrs; m++) {
+      const mgrId = String(++idCtr);
+      rows.push({ id: mgrId, name: makeDemoName(), title: titles[Math.min(2, titles.length-1)],
+                  dept, managerId: headId, email: `mgr${mgrId}@corp.com` });
+
+      // 2-4 ICs per manager
+      const ics = 2 + (idCtr % 3);
+      for (let i = 0; i < ics && idCtr < 50; i++) {
+        const icId = String(++idCtr);
+        rows.push({ id: icId, name: makeDemoName(),
+                    title: titles[Math.min(3 + i % 2, titles.length-1)],
+                    dept, managerId: mgrId, email: `ic${icId}@corp.com` });
+      }
+    }
+  });
+
+  rawRows = rows;
+  colMap  = { id:'id', name:'name', title:'title', dept:'dept',
+              managerId:'managerId', email:'email' };
+  buildFromRaw();  // Step 3
+}
+
+console.log('[Step 2] parseExcelWizard + demo ready ✓');
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     STEP 3 — mapColumns(), computeLayers(), buildFromRaw()
+     Converts rawRows + colMap → orgNodes tree with layer metadata
+════════════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ─────────────────────────────────────────────────────────────────
+// mapColumns(rows, map)
+//   Normalises each raw row using the column-mapping the user set.
+//   Returns an array of { id, name, title, dept, managerId, email, avatar }
+// ─────────────────────────────────────────────────────────────────
+function mapColumns(rows, map) {
+  return rows.map((r, i) => ({
+    id:        String(r[map.id]        ?? '').trim() || ('__auto_' + i),
+    name:      String(r[map.name]      ?? '').trim() || '(unnamed)',
+    title:     map.title     ? String(r[map.title]     ?? '').trim() : '',
+    dept:      map.dept      ? String(r[map.dept]      ?? '').trim() : '',
+    managerId: map.managerId ? String(r[map.managerId] ?? '').trim() : '',
+    email:     map.email     ? String(r[map.email]     ?? '').trim() : '',
+    avatar:    map.avatar    ? String(r[map.avatar]    ?? '').trim() : '',
+    children:  [],   // filled by computeLayers
+    layer:     0,    // BFS depth
+    collapsed: false,
+    _raw:      r,    // preserve original for detail panel
+  }));
+}
+
+// ─────────────────────────────────────────────────────────────────
+// computeLayers(nodes)
+//   Builds parent→children links via a Map, then runs BFS from the
+//   root (node whose managerId is blank / not in the id set) to
+//   assign layer (depth) numbers.
+//   Returns { roots, byId, maxLayer } and mutates nodes in-place.
+// ─────────────────────────────────────────────────────────────────
+function computeLayers(nodes) {
+  const byId = new Map(nodes.map(n => [n.id, n]));
+
+  // Reset children arrays (safe to call multiple times)
+  nodes.forEach(n => { n.children = []; n.layer = -1; });
+
+  // Detect duplicate IDs
+  const idCounts = {};
+  nodes.forEach(n => { idCounts[n.id] = (idCounts[n.id] || 0) + 1; });
+  const dupes = Object.entries(idCounts).filter(([,c]) => c > 1).map(([id]) => id);
+  if (dupes.length) showError(`Duplicate IDs detected: ${dupes.slice(0,3).join(', ')}…`);
+
+  // Link children
+  const validIds = new Set(nodes.map(n => n.id));
+  nodes.forEach(n => {
+    if (n.managerId && validIds.has(n.managerId)) {
+      byId.get(n.managerId).children.push(n);
+    }
+  });
+
+  // Find roots (no valid manager)
+  const roots = nodes.filter(n => !n.managerId || !validIds.has(n.managerId));
+
+  if (!roots.length) {
+    showError('No root node found — check Manager ID column (possible cycle)');
+    return null;
+  }
+  if (roots.length > 1) {
+    // Warn but continue — we'll render a virtual root
+    console.warn('Multiple roots:', roots.map(r => r.name));
+  }
+
+  // BFS to assign layers
+  let maxLayer = 0;
+  const queue = roots.map(r => ({ node: r, layer: 0 }));
+  const visited = new Set();
+
+  while (queue.length) {
+    const { node, layer } = queue.shift();
+    if (visited.has(node.id)) continue;  // skip cycles
+    visited.add(node.id);
+    node.layer = layer;
+    maxLayer = Math.max(maxLayer, layer);
+    node.children.forEach(child => queue.push({ node: child, layer: layer + 1 }));
+  }
+
+  // Nodes not reached (disconnected / cycle) → attach to first root
+  nodes.filter(n => n.layer === -1).forEach(n => {
+    n.layer = maxLayer + 1;
+    roots[0].children.push(n);
+    showError(`Node "${n.name}" was disconnected and appended to root`);
+  });
+
+  return { roots, byId, maxLayer };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// buildFromRaw()
+//   Orchestrates mapColumns → computeLayers → setupChart.
+//   Called after wizard finishes OR demo button click.
+// ─────────────────────────────────────────────────────────────────
+function buildFromRaw() {
+  if (!rawRows.length) { showError('No data'); return; }
+
+  // Map columns
+  orgNodes = mapColumns(rawRows, colMap);
+
+  // Compute hierarchy
+  const result = computeLayers(orgNodes);
+  if (!result) return;
+
+  const { roots, byId, maxLayer } = result;
+
+  // If multiple roots, wrap in a virtual CEO placeholder
+  let displayRoots = roots;
+  if (roots.length > 1) {
+    const virtual = {
+      id: '__virtual_root__', name: '(Organisation)', title: '', dept: '',
+      managerId: '', email: '', avatar: '', layer: 0,
+      children: roots, collapsed: false, _virtual: true
+    };
+    roots.forEach(r => { r.layer += 1; r.managerId = '__virtual_root__'; });
+    displayRoots = [virtual];
+    orgNodes.unshift(virtual);
+  }
+
+  // Department colour palette
+  buildDeptColors(orgNodes);
+
+  // Update sidebar stats
+  document.getElementById('stat-nodes') .textContent = orgNodes.filter(n => !n._virtual).length;
+  document.getElementById('stat-depth') .textContent = maxLayer;
+  document.getElementById('stat-layers').textContent = maxLayer + 1;
+
+  // Hand off to the chart renderer (Step 4)
+  setupChart(displayRoots);
+}
+
+// ─────────────────────────────────────────────────────────────────
+// buildDeptColors(nodes)
+//   Assigns a pastel colour to each unique department and updates
+//   the sidebar legend.
+// ─────────────────────────────────────────────────────────────────
+const PALETTE = [
+  '#3b82f6','#8b5cf6','#ec4899','#f59e0b','#10b981',
+  '#ef4444','#06b6d4','#84cc16','#f97316','#6366f1',
+];
+let deptColorMap = {};
+
+function buildDeptColors(nodes) {
+  deptColorMap = {};
+  // Use known COLORS_DEPT first (for demo data)
+  if (typeof COLORS_DEPT !== 'undefined') Object.assign(deptColorMap, COLORS_DEPT);
+
+  let idx = Object.keys(deptColorMap).length;
+  nodes.forEach(n => {
+    if (n.dept && !deptColorMap[n.dept]) {
+      deptColorMap[n.dept] = PALETTE[idx % PALETTE.length];
+      idx++;
+    }
+  });
+
+  // Sidebar legend
+  const legendEl = document.getElementById('legend-list');
+  legendEl.innerHTML = Object.entries(deptColorMap).map(([dept, color]) => `
+    <div class="flex items-center gap-2">
+      <span class="w-3 h-3 rounded-full shrink-0" style="background:${color}"></span>
+      <span class="text-xs truncate">${dept}</span>
+    </div>
+  `).join('') || '<span class="text-xs text-gray-400">No departments</span>';
+}
+
+// Expose for card rendering (Step 4)
+function nodeColor(node) {
+  if (node._virtual) return '#94a3b8';
+  return deptColorMap[node.dept] || '#64748b';
+}
+
+console.log('[Step 3] mapColumns + computeLayers ready ✓');
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     STEP 4 — setupChart() + virtual rendering + lazy branches
+     Positions nodes on a canvas, draws SVG connectors,
+     handles collapse/expand, selection, and search highlight.
+════════════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ── Layout constants ───────────────────────────────────────────
+const NODE_W      = 160;   // card width px
+const NODE_H      = 72;    // card height px
+const H_GAP       = 24;    // horizontal gap between siblings
+const V_GAP       = 56;    // vertical gap between layers
+const LAZY_DEPTH  = 3;     // auto-collapse branches deeper than this on load (>2000 nodes)
+
+// ─────────────────────────────────────────────────────────────────
+// setupChart(roots)
+//   Entry point from buildFromRaw().
+//   1. Optionally auto-collapses deep branches for large datasets.
+//   2. Runs the layout algorithm.
+//   3. Renders node cards + SVG connectors.
+// ─────────────────────────────────────────────────────────────────
+function setupChart(roots) {
+  const chartRoot  = document.getElementById('chart-root');
+  const emptyState = document.getElementById('empty-state');
+  emptyState.style.display = 'none';
+
+  // Auto-collapse for performance on large datasets
+  if (orgNodes.length > 200) {
+    autoCollapseDeep(roots, LAZY_DEPTH);
+  }
+
+  renderChart(roots);
+}
+
+// ─────────────────────────────────────────────────────────────────
+// autoCollapseDeep(roots, maxDepth)
+//   Sets node.collapsed = true for nodes at layer >= maxDepth
+//   that still have children. This avoids rendering thousands of
+//   off-screen cards initially — the user expands branches lazily.
+// ─────────────────────────────────────────────────────────────────
+function autoCollapseDeep(roots, maxDepth) {
+  function walk(node, depth) {
+    if (depth >= maxDepth && node.children.length) {
+      node.collapsed = true;
+    } else {
+      node.children.forEach(c => walk(c, depth + 1));
+    }
+  }
+  roots.forEach(r => walk(r, 0));
+}
+
+// ─────────────────────────────────────────────────────────────────
+// layout(roots)
+//   Treemap-style Reingold-Tilford inspired layout.
+//   Returns { positions: Map<id, {x,y}>, totalW, totalH }
+//   We compute subtree widths bottom-up, then place nodes top-down.
+// ─────────────────────────────────────────────────────────────────
+function subtreeWidth(node) {
+  if (node.collapsed || !node.children.length) return NODE_W;
+  const childrenW = node.children.reduce((s, c) => s + subtreeWidth(c), 0)
+                  + H_GAP * (node.children.length - 1);
+  return Math.max(NODE_W, childrenW);
+}
+
+function layout(roots) {
+  const positions = new Map();
+  let totalW = 0, totalH = 0;
+
+  // Root(s) sit side-by-side
+  let cursorX = 0;
+  roots.forEach(root => {
+    const w = subtreeWidth(root);
+    placeSubtree(root, cursorX, 0, w, positions);
+    cursorX += w + H_GAP * 2;
+    totalH = Math.max(totalH, maxY(root, positions));
+  });
+  totalW = cursorX;
+
+  return { positions, totalW, totalH: totalH + NODE_H + V_GAP };
+}
+
+function placeSubtree(node, x, y, allocW, positions) {
+  // Centre this node in its allocated width
+  const cx = x + allocW / 2 - NODE_W / 2;
+  positions.set(node.id, { x: cx, y });
+
+  if (node.collapsed || !node.children.length) return;
+
+  // Distribute children
+  const childY   = y + NODE_H + V_GAP;
+  const totalCW  = node.children.reduce((s,c) => s + subtreeWidth(c), 0)
+                 + H_GAP * (node.children.length - 1);
+  let childX = x + allocW / 2 - totalCW / 2;
+
+  node.children.forEach(child => {
+    const cw = subtreeWidth(child);
+    placeSubtree(child, childX, childY, cw, positions);
+    childX += cw + H_GAP;
+  });
+}
+
+function maxY(node, positions) {
+  const pos = positions.get(node.id);
+  if (!pos) return 0;
+  if (node.collapsed || !node.children.length) return pos.y;
+  return Math.max(...node.children.map(c => maxY(c, positions)));
+}
+
+// ─────────────────────────────────────────────────────────────────
+// renderChart(roots)
+//   Full re-render: clear DOM, run layout, create card elements,
+//   draw SVG connectors. Virtualisation: only cards within a
+//   2× viewport radius are rendered; rest are placeholder divs.
+// ─────────────────────────────────────────────────────────────────
+let selectedId = null;
+
+function renderChart(roots) {
+  const chartRoot = document.getElementById('chart-root');
+  // Remove old cards but keep SVG
+  chartRoot.querySelectorAll('.node-card').forEach(el => el.remove());
+
+  const { positions, totalW, totalH } = layout(roots);
+
+  // Resize canvas
+  chartRoot.style.width  = (totalW + 80) + 'px';
+  chartRoot.style.height = (totalH + 80) + 'px';
+
+  // Draw connectors first (behind cards)
+  drawConnectors(roots, positions);
+
+  // Render visible cards (virtual rendering threshold)
+  const VIRTUAL_THRESHOLD = 300; // above this, skip off-screen nodes initially
+  const useVirtual = orgNodes.length > VIRTUAL_THRESHOLD;
+  const area = document.getElementById('chart-area');
+  const vpW = area.clientWidth * 2;
+  const vpH = area.clientHeight * 2;
+
+  function isVisible(pos) {
+    if (!useVirtual) return true;
+    return pos.x < area.scrollLeft + vpW &&
+           pos.y < area.scrollTop  + vpH;
+  }
+
+  // Collect all visible nodes via BFS
+  const queue = [...roots];
+  while (queue.length) {
+    const node = queue.shift();
+    const pos  = positions.get(node.id);
+    if (!pos) continue;
+
+    if (isVisible(pos)) {
+      chartRoot.appendChild(createCard(node, pos));
+    }
+    if (!node.collapsed) node.children.forEach(c => queue.push(c));
+  }
+
+  // On scroll, reveal newly visible cards
+  if (useVirtual) {
+    area.onscroll = () => revealOnScroll(roots, positions, chartRoot, area);
+  }
+}
+
+// Re-renders cards that have scrolled into view
+function revealOnScroll(roots, positions, chartRoot, area) {
+  const vpW = area.clientWidth + 400;
+  const vpH = area.clientHeight + 400;
+  const sl  = area.scrollLeft;
+  const st  = area.scrollTop;
+
+  const queue = [...roots];
+  while (queue.length) {
+    const node = queue.shift();
+    const pos  = positions.get(node.id);
+    if (!pos) continue;
+
+    const inView = pos.x + NODE_W > sl - 200 && pos.x < sl + vpW &&
+                   pos.y + NODE_H > st - 200 && pos.y < st + vpH;
+
+    if (inView && !document.getElementById('card-' + node.id)) {
+      chartRoot.appendChild(createCard(node, pos));
+    }
+    if (!node.collapsed) node.children.forEach(c => queue.push(c));
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// createCard(node, pos) → <div>
+//   Builds a single org-chart node card with avatar initial,
+//   name, title, dept badge, collapse button, and click handler.
+// ─────────────────────────────────────────────────────────────────
+function createCard(node, pos) {
+  const color  = nodeColor(node);
+  const initials = node.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+  const isSelected = node.id === selectedId;
+
+  const card = document.createElement('div');
+  card.id = 'card-' + node.id;
+  card.className = 'node-card';
+  card.style.cssText = `
+    left:${pos.x}px; top:${pos.y}px;
+    width:${NODE_W}px; min-height:${NODE_H}px;
+  `;
+
+  const hasChildren = node.children.length > 0;
+
+  card.innerHTML = `
+    <div class="relative rounded-xl border-2 shadow-md p-2 flex items-center gap-2
+                 bg-white dark:bg-gray-800 hover:shadow-lg
+                 ${isSelected ? 'ring-2 ring-offset-2 ring-brand-500' : ''}
+                 transition-shadow"
+         style="border-color:${color}">
+      <!-- Avatar -->
+      <div class="w-9 h-9 rounded-full flex items-center justify-center text-white
+                  font-bold text-xs shrink-0"
+           style="background:${color}">
+        ${node.avatar
+          ? `<img src="${node.avatar}" class="w-9 h-9 rounded-full object-cover" alt="" onerror="this.style.display='none'">`
+          : initials}
+      </div>
+      <!-- Text -->
+      <div class="flex-1 min-w-0">
+        <p class="text-xs font-semibold leading-tight truncate dark:text-gray-100">${escHtml(node.name)}</p>
+        ${node.title ? `<p class="text-[10px] text-gray-500 dark:text-gray-400 truncate">${escHtml(node.title)}</p>` : ''}
+        ${node.dept  ? `<span class="text-[9px] font-bold uppercase px-1 rounded"
+                              style="color:${color};background:${color}18">${escHtml(node.dept)}</span>` : ''}
+      </div>
+      <!-- Collapse/expand toggle -->
+      ${hasChildren ? `
+        <button class="expand-btn w-5 h-5 rounded-full border-2 bg-white dark:bg-gray-900
+                        text-[10px] font-bold flex items-center justify-center shrink-0
+                        hover:scale-110 transition-transform"
+                style="border-color:${color};color:${color}"
+                data-id="${node.id}" title="${node.collapsed ? 'Expand' : 'Collapse'}">
+          ${node.collapsed ? '+' : '−'}
+        </button>
+      ` : ''}
+    </div>
+  `;
+
+  // Click → select node
+  card.querySelector('.rounded-xl').addEventListener('click', e => {
+    if (e.target.closest('.expand-btn')) return; // handled below
+    selectedId = node.id;
+    showNodeDetail(node);
+    // Re-render just the ring without full re-render
+    document.querySelectorAll('.node-card .rounded-xl').forEach(el => {
+      el.classList.remove('ring-2','ring-offset-2','ring-brand-500');
+    });
+    card.querySelector('.rounded-xl').classList.add('ring-2','ring-offset-2','ring-brand-500');
+  });
+
+  // Expand/collapse button
+  const expandBtn = card.querySelector('.expand-btn');
+  if (expandBtn) {
+    expandBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      node.collapsed = !node.collapsed;
+      // Lazy-load: find current roots from orgNodes
+      const chartRoots = orgNodes.filter(n => !n.managerId || !orgNodes.find(p => p.id === n.managerId));
+      renderChart(chartRoots);
+    });
+  }
+
+  return card;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// drawConnectors(roots, positions)
+//   Draws curved SVG paths between parent and child cards.
+//   Uses cubic bezier with vertical control points for clean look.
+// ─────────────────────────────────────────────────────────────────
+function drawConnectors(roots, positions) {
+  const svg = document.getElementById('svg-connectors');
+  const chartRoot = document.getElementById('chart-root');
+  svg.setAttribute('width',  chartRoot.style.width);
+  svg.setAttribute('height', chartRoot.style.height);
+  svg.innerHTML = '';
+
+  function drawEdges(node) {
+    const pPos = positions.get(node.id);
+    if (!pPos || node.collapsed) return;
+
+    node.children.forEach(child => {
+      const cPos = positions.get(child.id);
+      if (!cPos) return;
+
+      // Start: bottom-centre of parent
+      const x1 = pPos.x + NODE_W / 2;
+      const y1 = pPos.y + NODE_H;
+      // End: top-centre of child
+      const x2 = cPos.x + NODE_W / 2;
+      const y2 = cPos.y;
+      // Control points create a smooth S-curve
+      const cy = (y1 + y2) / 2;
+
+      const color = nodeColor(child);
+      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('d', `M${x1},${y1} C${x1},${cy} ${x2},${cy} ${x2},${y2}`);
+      path.setAttribute('stroke', color);
+      path.setAttribute('stroke-width', '1.5');
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke-opacity', '0.6');
+      svg.appendChild(path);
+
+      drawEdges(child);
+    });
+  }
+  roots.forEach(r => drawEdges(r));
+}
+
+// ─────────────────────────────────────────────────────────────────
+// showNodeDetail(node)
+//   Populates the sidebar "Selected" panel with node metadata.
+// ─────────────────────────────────────────────────────────────────
+function showNodeDetail(node) {
+  const panel = document.getElementById('node-detail');
+  const body  = document.getElementById('node-detail-body');
+  panel.classList.remove('hidden');
+
+  const rows = [
+    ['Name',  node.name],
+    ['Title', node.title],
+    ['Dept',  node.dept],
+    ['Email', node.email ? `<a href="mailto:${escHtml(node.email)}"
+               class="text-brand-500 underline">${escHtml(node.email)}</a>` : ''],
+    ['ID',    node.id],
+    ['Reports', node.children.length],
+  ].filter(([,v]) => v);
+
+  body.innerHTML = rows.map(([k, v]) =>
+    `<div class="flex gap-1 flex-wrap">
+       <span class="text-gray-400 dark:text-gray-500 text-xs w-14 shrink-0">${k}:</span>
+       <span class="text-xs font-medium flex-1">${v}</span>
+     </div>`
+  ).join('');
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Search
+// ─────────────────────────────────────────────────────────────────
+document.getElementById('search-box').addEventListener('input', function() {
+  const q = this.value.toLowerCase().trim();
+  document.querySelectorAll('.node-card').forEach(card => {
+    const text = card.textContent.toLowerCase();
+    card.style.opacity = (!q || text.includes(q)) ? '1' : '0.2';
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────
+// escHtml — prevent XSS in injected content
+// ─────────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+console.log('[Step 4] setupChart + renderChart ready ✓');
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     STEP 5 — Fit-to-view post-render, expand/collapse-all,
+              "No CEO" guard, and final polish
+════════════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ─────────────────────────────────────────────────────────────────
+// Patch fitToView so it uses actual rendered dimensions
+// (the original definition in Step 1 runs before any chart exists)
+// ─────────────────────────────────────────────────────────────────
+function fitToView() {
+  const area = document.getElementById('chart-area');
+  const root = document.getElementById('chart-root');
+  // Reset scale first to measure natural size
+  root.style.transform = 'scale(1)';
+  root.style.transformOrigin = 'top left';
+  const w = root.scrollWidth || 1;
+  const h = root.scrollHeight || 1;
+  const z = Math.min((area.clientWidth - 32) / w,
+                     (area.clientHeight - 32) / h, 1);
+  applyZoom(Math.max(0.1, z));
+}
+
+// ─────────────────────────────────────────────────────────────────
+// After setupChart renders, auto-fit the view
+// ─────────────────────────────────────────────────────────────────
+const _origSetupChart = setupChart;
+window.setupChart = function(roots) {
+  _origSetupChart(roots);
+  // Small delay lets the DOM paint first
+  requestAnimationFrame(() => requestAnimationFrame(fitToView));
+};
+
+// ─────────────────────────────────────────────────────────────────
+// Expand-all / Collapse-all buttons (added to toolbar dynamically)
+// ─────────────────────────────────────────────────────────────────
+(function addExpandCollapseButtons() {
+  const toolbar = document.getElementById('toolbar');
+  const divider = document.createElement('div');
+  divider.className = 'w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1';
+
+  const btnExpAll = document.createElement('button');
+  btnExpAll.className = 'btn-secondary text-sm';
+  btnExpAll.textContent = '⊞ All';
+  btnExpAll.title = 'Expand all branches';
+
+  const btnColAll = document.createElement('button');
+  btnColAll.className = 'btn-secondary text-sm';
+  btnColAll.textContent = '⊟ All';
+  btnColAll.title = 'Collapse all branches';
+
+  // Insert before the flex-1 spacer
+  const spacer = toolbar.querySelector('.flex-1');
+  toolbar.insertBefore(btnColAll,  spacer);
+  toolbar.insertBefore(btnExpAll,  btnColAll);
+  toolbar.insertBefore(divider,    btnExpAll);
+
+  function setAllCollapsed(val) {
+    orgNodes.forEach(n => { if (n.children.length) n.collapsed = val; });
+    if (!orgNodes.length) return;
+    const roots = orgNodes.filter(n => !orgNodes.find(p => p.id === n.managerId));
+    renderChart(roots);
+    requestAnimationFrame(() => requestAnimationFrame(fitToView));
+  }
+
+  btnExpAll.addEventListener('click', () => setAllCollapsed(false));
+  btnColAll.addEventListener('click', () => setAllCollapsed(true));
+})();
+
+// ─────────────────────────────────────────────────────────────────
+// "No CEO" / single-root guard (already handled in computeLayers,
+//  but show a friendly banner if virtual root was injected)
+// ─────────────────────────────────────────────────────────────────
+// Already handled via showError in computeLayers.
+
+// ─────────────────────────────────────────────────────────────────
+// Keyboard shortcut: Escape deselects node
+// ─────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    selectedId = null;
+    document.querySelectorAll('.node-card .rounded-xl').forEach(el =>
+      el.classList.remove('ring-2','ring-offset-2','ring-brand-500'));
+    document.getElementById('node-detail').classList.add('hidden');
+  }
+  // + / - zoom shortcuts
+  if ((e.key === '+' || e.key === '=') && !e.target.matches('input,select,textarea'))
+    applyZoom(zoomLevel + 0.1);
+  if (e.key === '-' && !e.target.matches('input,select,textarea'))
+    applyZoom(zoomLevel - 0.1);
+  if (e.key === '0' && !e.target.matches('input,select,textarea'))
+    fitToView();
+});
+
+// ─────────────────────────────────────────────────────────────────
+// Mouse-wheel zoom on the chart area
+// ─────────────────────────────────────────────────────────────────
+document.getElementById('chart-area').addEventListener('wheel', e => {
+  if (!e.ctrlKey && !e.metaKey) return;
+  e.preventDefault();
+  applyZoom(zoomLevel - e.deltaY * 0.001);
+}, { passive: false });
+
+console.log('[Step 5] Polish + expand/collapse-all ready ✓');
+console.log('OrgChart Wizard fully loaded ✓');
+</script>
+
+</body>
+</html>
