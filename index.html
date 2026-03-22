@@ -75,7 +75,10 @@
   </span>
 
   <!-- File upload -->
-  <label class="btn-primary cursor-pointer flex items-center gap-1">
+  <label class="cursor-pointer flex items-center gap-1.5 text-sm font-medium px-4 py-1.5
+               rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700
+               text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600
+               shadow-sm transition-colors">
     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
         d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12V4m0 0L8 8m4-4l4 4"/>
@@ -84,15 +87,16 @@
     <input id="file-input" type="file" accept=".xlsx,.xls,.csv" class="hidden"/>
   </label>
 
-  <!-- Dummy data -->
-  <button id="btn-demo" class="btn-secondary">Demo (50 nodes)</button>
-
   <!-- Discard -->
   <button id="btn-discard"
-    class="hidden text-sm font-semibold px-4 py-1.5 rounded-lg border-2
-           border-red-400 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20
-           transition-colors">
-    ✕ Discard
+    class="hidden flex items-center gap-1.5 text-sm font-medium px-4 py-1.5 rounded-lg
+           border border-red-300 dark:border-red-700 bg-white dark:bg-gray-700
+           text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20
+           shadow-sm transition-colors">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+    </svg>
+    Discard
   </button>
 
   <div class="flex-1"></div>
@@ -101,17 +105,61 @@
   <input id="search-box" type="search" placeholder="Search name / title…"
     class="input-field w-44 text-sm"/>
 
-  <!-- Zoom -->
-  <div class="flex items-center gap-1">
-    <button id="btn-zoom-out" class="btn-icon" title="Zoom out">−</button>
-    <span id="zoom-label" class="text-xs w-10 text-center">100%</span>
-    <button id="btn-zoom-in"  class="btn-icon" title="Zoom in">+</button>
-    <button id="btn-zoom-fit" class="btn-icon text-xs" title="Fit">Fit</button>
+  <!-- Zoom group -->
+  <div class="flex items-center rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden shadow-sm">
+    <button id="btn-zoom-out"
+      class="flex items-center justify-center w-8 h-8 text-lg font-medium
+             bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600
+             text-gray-600 dark:text-gray-300 transition-colors border-r border-gray-200 dark:border-gray-600"
+      title="Zoom out (−)">−</button>
+    <span id="zoom-label"
+      class="w-12 text-center text-xs font-mono font-semibold
+             bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 select-none h-8 flex items-center justify-center">
+      100%
+    </span>
+    <button id="btn-zoom-in"
+      class="flex items-center justify-center w-8 h-8 text-lg font-medium
+             bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600
+             text-gray-600 dark:text-gray-300 transition-colors border-l border-gray-200 dark:border-gray-600"
+      title="Zoom in (+)">+</button>
+    <button id="btn-zoom-fit"
+      class="flex items-center gap-1 px-3 h-8 text-xs font-semibold
+             bg-gray-50 dark:bg-gray-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/40
+             text-indigo-600 dark:text-indigo-300 transition-colors border-l border-gray-200 dark:border-gray-600"
+      title="Fit to view (F)">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M4 8V5a1 1 0 011-1h3M4 16v3a1 1 0 001 1h3M20 8V5a1 1 0 00-1-1h-3M20 16v3a1 1 0 01-1 1h-3"/>
+      </svg>
+      Fit
+    </button>
   </div>
 
-  <!-- Export -->
-  <button id="btn-export-png" class="btn-secondary text-sm">↓ PNG</button>
-  <button id="btn-print"      class="btn-secondary text-sm">⎙ Print</button>
+  <!-- Export group -->
+  <div class="flex items-center rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden shadow-sm">
+    <button id="btn-export-png"
+      class="flex items-center gap-1.5 px-3 h-8 text-xs font-semibold
+             bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600
+             text-gray-600 dark:text-gray-300 transition-colors border-r border-gray-200 dark:border-gray-600"
+      title="Export as PNG">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 4v12m0 0l-4-4m4 4l4-4"/>
+      </svg>
+      PNG
+    </button>
+    <button id="btn-print"
+      class="flex items-center gap-1.5 px-3 h-8 text-xs font-semibold
+             bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600
+             text-gray-600 dark:text-gray-300 transition-colors"
+      title="Print">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M6 9V4h12v5M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M9 14h6v5H9v-5z"/>
+      </svg>
+      Print
+    </button>
+  </div>
 
   <!-- Dark mode -->
   <button id="btn-dark" class="btn-icon" title="Toggle dark mode">🌙</button>
@@ -139,6 +187,17 @@
     <div>
       <p class="font-semibold mb-1 text-gray-500 dark:text-gray-400 uppercase tracking-wide text-xs">Legend</p>
       <div id="legend-list" class="space-y-1"></div>
+    </div>
+
+    <div>
+      <p class="font-semibold mb-1 text-gray-500 dark:text-gray-400 uppercase tracking-wide text-xs">Color Labels</p>
+      <div id="color-labels-list" class="space-y-1.5"></div>
+      <button onclick="addColorLabel()"
+        class="mt-2 w-full text-xs text-brand-500 hover:text-brand-700
+               border border-dashed border-brand-300 dark:border-brand-700
+               rounded-lg py-1 hover:bg-brand-50 dark:hover:bg-brand-950/20 transition-colors">
+        + Add label
+      </button>
     </div>
 
     <div id="unassigned-panel" class="hidden">
@@ -334,6 +393,17 @@ console.log('[Step 1] Skeleton ready ✓');
 let rawRows  = [];
 let colMap   = {};
 let orgNodes = [];
+
+// ── Color Labels ─────────────────────────────────────────────────
+// colorLabels       : user-defined [ { color, label }, … ]
+// nodeColorOverrides: { [nodeId]: labelIndex }  — per-node override
+let colorLabels = [
+  { color: '#ef4444', label: 'At Risk' },
+  { color: '#22c55e', label: 'High Performer' },
+  { color: '#f59e0b', label: 'On Leave' },
+  { color: '#3b82f6', label: 'New Hire' },
+];
+let nodeColorOverrides = {};
 
 // ── File input wiring ────────────────────────────────────────────
 document.getElementById('file-input').addEventListener('change', function(e) {
@@ -552,8 +622,6 @@ const TITLES_BY_DEPT = {
   Operations:  ['COO','VP Operations','Operations Manager','Operations Analyst','Coordinator'],
 };
 
-document.getElementById('btn-demo').addEventListener('click', loadDemoData);
-
 function loadDemoData() {
   // Build a 50-node hierarchy: CEO → dept heads → managers → ICs
   const rows = [];
@@ -655,56 +723,53 @@ function computeLayers(nodes) {
   const dupes = Object.entries(idCounts).filter(([,c]) => c > 1).map(([id]) => id);
   if (dupes.length) showError(`Duplicate IDs detected: ${dupes.slice(0,3).join(', ')}…`);
 
-  // Link children — both id and managerId are normalised by normalizeId()
+  // Link children — any node whose managerId resolves to a known id becomes a child.
   const validIds = new Set(nodes.map(n => n.id));
   nodes.forEach(n => {
-    if (n.managerId && n.managerId !== n.id && validIds.has(n.managerId)) {
+    if (!n.managerId || n.managerId === n.id) return;
+    if (validIds.has(n.managerId)) {
       byId.get(n.managerId).children.push(n);
     }
   });
 
-  // IDs that appear as someone's manager (i.e. at least one person reports to them)
+  // Which IDs are actually referenced as a manager by at least one other node?
   const reportsToIds = new Set(
     nodes.map(n => n.managerId).filter(id => id && validIds.has(id))
   );
 
-  // Nodes with no valid manager
+  // Nodes with no resolvable manager (blank, "N/A", missing, or code not found)
   const noManager = nodes.filter(n => !n.managerId || !validIds.has(n.managerId));
 
-  // Real roots: no manager BUT others report to them → they head a chain
+  // Real roots = nodes with no manager BUT someone reports to them → they head a chain
   const roots = noManager.filter(n => reportsToIds.has(n.id));
 
-  // Unassigned: no manager AND nobody reports to them → leave aside
+  // Unassigned = nodes with no manager AND nobody reports to them → exclude from chart
   const unassigned = noManager.filter(n => !reportsToIds.has(n.id));
+  unassigned.forEach(n => { n._unassigned = true; });
 
   if (!roots.length) {
-    showError('No root node found — check Manager ID column (possible cycle)');
+    showError('Could not find the top-level manager. Make sure at least one person has a blank "report to" field and others reference their employee code.');
     return null;
   }
-  if (roots.length > 1) {
-    // Warn but continue — we'll render a virtual root
-    console.warn('Multiple roots:', roots.map(r => r.name));
-  }
 
-  // BFS to assign layers
+  // BFS to assign layers from real roots
   let maxLayer = 0;
   const queue = roots.map(r => ({ node: r, layer: 0 }));
   const visited = new Set();
 
   while (queue.length) {
     const { node, layer } = queue.shift();
-    if (visited.has(node.id)) continue;  // skip cycles
+    if (visited.has(node.id)) continue;
     visited.add(node.id);
     node.layer = layer;
     maxLayer = Math.max(maxLayer, layer);
     node.children.forEach(child => queue.push({ node: child, layer: layer + 1 }));
   }
 
-  // Nodes not reached (disconnected / cycle) → attach to first root
+  // Any node still unreachable after BFS → also unassigned
   nodes.filter(n => n.layer === -1).forEach(n => {
-    n.layer = maxLayer + 1;
-    roots[0].children.push(n);
-    showError(`Node "${n.name}" was disconnected and appended to root`);
+    n._unassigned = true;
+    if (!unassigned.includes(n)) unassigned.push(n);
   });
 
   return { roots, byId, maxLayer, unassigned };
@@ -719,6 +784,7 @@ function buildFromRaw() {
   if (!rawRows.length) { showError('No data'); return; }
 
   // Map columns
+  nodeColorOverrides = {};
   orgNodes = mapColumns(rawRows, colMap);
 
   // Compute hierarchy
@@ -755,7 +821,9 @@ function buildFromRaw() {
   setupChart(displayRoots);
 
   // Show discard button
-  document.getElementById('btn-discard').classList.remove('hidden');
+  const discardBtn = document.getElementById('btn-discard');
+  discardBtn.classList.remove('hidden');
+  discardBtn.style.display = 'inline-flex';
 }
 
 function showUnassignedPanel(unassigned) {
@@ -805,6 +873,8 @@ function buildDeptColors(nodes) {
 // Expose for card rendering (Step 4)
 function nodeColor(node) {
   if (node._virtual) return '#94a3b8';
+  const ov = nodeColorOverrides[node.id];
+  if (ov !== undefined && colorLabels[ov]) return colorLabels[ov].color;
   return deptColorMap[node.dept] || '#64748b';
 }
 
@@ -825,7 +895,7 @@ const NODE_H            = 80;    // card height px
 const H_GAP             = 16;    // horizontal gap between siblings
 const V_GAP             = 60;    // vertical gap between layers
 const LAZY_DEPTH        = 3;     // auto-collapse branches deeper than this on load (>2000 nodes)
-const MAX_CHILDREN_ROW  = 5;     // wrap children into a new row after this many per row
+const MAX_CHILDREN_ROW  = 9999;  // all siblings always in one row (same Y level)
 
 // ─────────────────────────────────────────────────────────────────
 // setupChart(roots)
@@ -872,27 +942,17 @@ function autoCollapseDeep(roots, maxDepth) {
 // ─────────────────────────────────────────────────────────────────
 function subtreeWidth(node) {
   if (node.collapsed || !node.children.length) return NODE_W;
-  // With row-wrapping: width = widest row
-  let maxRowW = 0;
-  for (let i = 0; i < node.children.length; i += MAX_CHILDREN_ROW) {
-    const row = node.children.slice(i, i + MAX_CHILDREN_ROW);
-    const rowW = row.reduce((s, c) => s + subtreeWidth(c), 0)
-               + H_GAP * (row.length - 1);
-    maxRowW = Math.max(maxRowW, rowW);
-  }
-  return Math.max(NODE_W, maxRowW);
+  // All children in one row — sum their widths
+  const totalW = node.children.reduce((s, c) => s + subtreeWidth(c), 0)
+               + H_GAP * (node.children.length - 1);
+  return Math.max(NODE_W, totalW);
 }
 
-// Compute vertical height of a subtree (used for multi-row child layout)
+// Vertical height of a subtree (single-row children only)
 function subtreeHeight(node) {
   if (node.collapsed || !node.children.length) return NODE_H;
-  let totalH = 0;
-  for (let i = 0; i < node.children.length; i += MAX_CHILDREN_ROW) {
-    const row = node.children.slice(i, i + MAX_CHILDREN_ROW);
-    const maxChildH = Math.max(...row.map(c => subtreeHeight(c)));
-    totalH += V_GAP + maxChildH;
-  }
-  return NODE_H + totalH;
+  const maxChildH = Math.max(...node.children.map(c => subtreeHeight(c)));
+  return NODE_H + V_GAP + maxChildH;
 }
 
 function layout(roots) {
@@ -919,22 +979,17 @@ function placeSubtree(node, x, y, allocW, positions) {
 
   if (node.collapsed || !node.children.length) return;
 
-  // Place children in rows of MAX_CHILDREN_ROW
-  let rowY = y + NODE_H + V_GAP;
-  for (let i = 0; i < node.children.length; i += MAX_CHILDREN_ROW) {
-    const row = node.children.slice(i, i + MAX_CHILDREN_ROW);
-    const totalCW = row.reduce((s, c) => s + subtreeWidth(c), 0)
-                  + H_GAP * (row.length - 1);
-    let childX = x + allocW / 2 - totalCW / 2;
-    let maxRowH = NODE_H;
-    row.forEach(child => {
-      const cw = subtreeWidth(child);
-      placeSubtree(child, childX, rowY, cw, positions);
-      childX += cw + H_GAP;
-      maxRowH = Math.max(maxRowH, subtreeHeight(child));
-    });
-    rowY += maxRowH + V_GAP;
-  }
+  // All children in a single row at the same Y — guarantees siblings are
+  // always at the same vertical level regardless of how many there are.
+  const childY   = y + NODE_H + V_GAP;
+  const totalCW  = node.children.reduce((s, c) => s + subtreeWidth(c), 0)
+                 + H_GAP * (node.children.length - 1);
+  let childX = x + allocW / 2 - totalCW / 2;
+  node.children.forEach(child => {
+    const cw = subtreeWidth(child);
+    placeSubtree(child, childX, childY, cw, positions);
+    childX += cw + H_GAP;
+  });
 }
 
 function maxY(node, positions) {
@@ -1026,10 +1081,33 @@ function revealOnScroll(roots, positions, chartRoot, area) {
 //   Builds a single org-chart node card with avatar initial,
 //   name, title, dept badge, collapse button, and click handler.
 // ─────────────────────────────────────────────────────────────────
+// Shorten a full name for the card: if > 18 chars, use "F. Last Name"
+function displayName(fullName) {
+  const parts = fullName.trim().split(/\s+/);
+  if (fullName.length <= 18 || parts.length < 2) return fullName;
+  return parts[0][0].toUpperCase() + '. ' + parts.slice(1).join(' ');
+}
+
 function createCard(node, pos) {
   const color  = nodeColor(node);
   const initials = node.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
   const isSelected = node.id === selectedId;
+  const shortName = displayName(node.name);
+  const manager = orgNodes.find(n => n.id === node.managerId);
+  const managerLine = manager ? '\nReports to: ' + manager.name : '';
+  function countDescendants(n) {
+    return n.children.reduce((sum, c) => sum + 1 + countDescendants(c), 0);
+  }
+  function countDepth(n) {
+    if (!n.children.length) return 0;
+    return 1 + Math.max(...n.children.map(countDepth));
+  }
+  const totalReports = countDescendants(node);
+  const layers = countDepth(node);
+  const reportsLine = totalReports > 0
+    ? '\nTotal reports: ' + totalReports + '  |  Layers below: ' + layers
+    : '';
+  const tooltipText = node.name + (node.title ? ' — ' + node.title : '') + managerLine + reportsLine;
 
   const card = document.createElement('div');
   card.id = 'card-' + node.id;
@@ -1057,27 +1135,27 @@ function createCard(node, pos) {
       </div>
       <!-- Text -->
       <div class="flex-1 min-w-0">
-        <p class="text-xs font-semibold leading-tight dark:text-gray-100" style="word-break:break-word">${escHtml(node.name)}</p>
+        <p class="text-xs font-semibold leading-tight dark:text-gray-100" style="word-break:break-word">${escHtml(shortName)}</p>
         ${node.title ? `<p class="text-[10px] text-gray-500 dark:text-gray-400 truncate">${escHtml(node.title)}</p>` : ''}
         ${node.dept  ? `<span class="text-[9px] font-bold uppercase px-1 rounded"
                               style="color:${color};background:${color}18">${escHtml(node.dept)}</span>` : ''}
       </div>
       <!-- Collapse/expand toggle (one level) + full expand -->
       ${hasChildren ? `
-        <div class="expand-btn flex gap-0.5">
-          <button class="one-level-btn w-5 h-5 rounded-full border-2 bg-white dark:bg-gray-900
-                          text-[10px] font-bold flex items-center justify-center
-                          hover:scale-110 transition-transform"
-                  style="border-color:${color};color:${color}"
-                  data-id="${node.id}" title="${node.collapsed ? 'Expand one level' : 'Collapse'}">
+        <div class="expand-btn">
+          <button onclick="event.stopPropagation();cardToggleOne('${node.id}')"
+                  style="width:20px;height:20px;border-radius:50%;border:2px solid ${color};
+                         color:${color};background:white;font-size:11px;font-weight:bold;
+                         cursor:pointer;line-height:1;"
+                  title="${node.collapsed ? 'Expand one level' : 'Collapse'}">
             ${node.collapsed ? '+' : '−'}
           </button>
           ${node.collapsed ? `
-          <button class="full-expand-btn w-5 h-5 rounded-full border-2 bg-white dark:bg-gray-900
-                          text-[9px] font-bold flex items-center justify-center
-                          hover:scale-110 transition-transform"
-                  style="border-color:${color};color:${color}"
-                  data-id="${node.id}" title="Expand all levels below">
+          <button onclick="event.stopPropagation();cardExpandAll('${node.id}')"
+                  style="width:20px;height:20px;border-radius:50%;border:2px solid ${color};
+                         color:${color};background:white;font-size:10px;font-weight:bold;
+                         cursor:pointer;line-height:1;"
+                  title="Expand all levels below">
             ⤵
           </button>` : ''}
         </div>
@@ -1085,48 +1163,54 @@ function createCard(node, pos) {
     </div>
   `;
 
-  // Click → select node
+  // Set tooltip with newlines preserved (must be set via JS, not innerHTML attribute)
+  card.querySelector('.rounded-xl').title = tooltipText;
+
+  // Click → select node + open colour picker
   card.querySelector('.rounded-xl').addEventListener('click', e => {
-    if (e.target.closest('.one-level-btn') || e.target.closest('.full-expand-btn')) return;
+    if (e.target.tagName === 'BUTTON') return; // let buttons handle their own clicks
     selectedId = node.id;
     showNodeDetail(node);
-    // Re-render just the ring without full re-render
+    openColorPicker(node, card.querySelector('.rounded-xl'));
     document.querySelectorAll('.node-card .rounded-xl').forEach(el => {
       el.classList.remove('ring-2','ring-offset-2','ring-brand-500');
     });
     card.querySelector('.rounded-xl').classList.add('ring-2','ring-offset-2','ring-brand-500');
   });
 
-  function rerender() {
-    const chartRoots = orgNodes.filter(n => !n.managerId || !orgNodes.find(p => p.id === n.managerId));
-    renderChart(chartRoots);
-  }
-
-  // One-level expand/collapse
-  const oneLevelBtn = card.querySelector('.one-level-btn');
-  if (oneLevelBtn) {
-    oneLevelBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      node.collapsed = !node.collapsed;
-      rerender();
-    });
-  }
-
-  // Full expand (all levels below)
-  const fullExpandBtn = card.querySelector('.full-expand-btn');
-  if (fullExpandBtn) {
-    fullExpandBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      function expandAll(n) {
-        n.collapsed = false;
-        n.children.forEach(expandAll);
-      }
-      expandAll(node);
-      rerender();
-    });
-  }
-
   return card;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Global helpers for card expand buttons (called via onclick)
+// ─────────────────────────────────────────────────────────────────
+function rerenderChart() {
+  const validIds = new Set(orgNodes.map(n => n.id));
+  const roots = orgNodes.filter(n =>
+    !n._unassigned && (n.managerId === '0' || (!n.managerId && !validIds.has(n.managerId)))
+  );
+  renderChart(roots.length ? roots : orgNodes.filter(n => !n._unassigned && !n.managerId));
+}
+
+function cardToggleOne(id) {
+  const node = orgNodes.find(n => n.id === id);
+  if (!node) return;
+  if (node.collapsed) {
+    // Expanding: show direct children only — collapse all grandchildren
+    node.collapsed = false;
+    node.children.forEach(child => { child.collapsed = true; });
+  } else {
+    // Collapsing: hide all descendants
+    node.collapsed = true;
+  }
+  rerenderChart();
+}
+
+function cardExpandAll(id) {
+  const node = orgNodes.find(n => n.id === id);
+  if (!node) return;
+  (function expandAll(n) { n.collapsed = false; n.children.forEach(expandAll); })(node);
+  rerenderChart();
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -1141,36 +1225,53 @@ function drawConnectors(roots, positions) {
   svg.setAttribute('height', chartRoot.style.height);
   svg.innerHTML = '';
 
+  function makeLine(x1, y1, x2, y2, stroke) {
+    const el = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    el.setAttribute('x1', x1); el.setAttribute('y1', y1);
+    el.setAttribute('x2', x2); el.setAttribute('y2', y2);
+    el.setAttribute('stroke', stroke);
+    el.setAttribute('stroke-width', '1.5');
+    el.setAttribute('stroke-opacity', '0.6');
+    svg.appendChild(el);
+  }
+
   function drawEdges(node) {
     const pPos = positions.get(node.id);
-    if (!pPos || node.collapsed) return;
+    if (!pPos || node.collapsed || !node.children.length) return;
 
-    node.children.forEach(child => {
-      const cPos = positions.get(child.id);
-      if (!cPos) return;
+    const px = pPos.x + NODE_W / 2;   // parent centre-x
+    const py = pPos.y + NODE_H;        // parent bottom-y
+    const color = nodeColor(node);
 
-      // Start: bottom-centre of parent
-      const x1 = pPos.x + NODE_W / 2;
-      const y1 = pPos.y + NODE_H;
-      // End: top-centre of child
-      const x2 = cPos.x + NODE_W / 2;
-      const y2 = cPos.y;
-      // Mid-point: halfway down for the horizontal segment
-      const my = Math.round((y1 + y2) / 2);
+    // Bus connector: all children share one horizontal bus at the same Y.
+    // ① Stem down from parent, ② horizontal bus across all children,
+    // ③ vertical drop to each child. No crossings possible because every
+    // sibling group is always laid out in a single row.
+    const childData = node.children.map(c => {
+      const p = positions.get(c.id);
+      return p ? { node: c, cx: p.x + NODE_W / 2, cy: p.y } : null;
+    }).filter(Boolean);
 
-      const color = nodeColor(child);
-      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
-      // Right-angle elbow: down → across → down
-      path.setAttribute('d', `M${x1},${y1} L${x1},${my} L${x2},${my} L${x2},${y2}`);
-      path.setAttribute('stroke', color);
-      path.setAttribute('stroke-width', '1.5');
-      path.setAttribute('fill', 'none');
-      path.setAttribute('stroke-opacity', '0.6');
-      svg.appendChild(path);
+    if (childData.length) {
+      const busY    = childData[0].cy - Math.round(V_GAP * 0.5);
+      const xs      = childData.map(d => d.cx);
+      const busLeft  = Math.min(px, ...xs);
+      const busRight = Math.max(px, ...xs);
 
-      drawEdges(child);
-    });
+      // ① Stem
+      makeLine(px, py, px, busY, color);
+      // ② Bus
+      if (busLeft < busRight) makeLine(busLeft, busY, busRight, busY, color);
+      // ③ Drops
+      childData.forEach(({ node: child, cx, cy }) => {
+        makeLine(cx, busY, cx, cy, nodeColor(child));
+      });
+    }
+
+    // Recurse
+    node.children.forEach(child => drawEdges(child));
   }
+
   roots.forEach(r => drawEdges(r));
 }
 
@@ -1223,6 +1324,143 @@ function escHtml(s) {
 
 console.log('[Step 4] setupChart + renderChart ready ✓');
 </script>
+<!-- ═══════════════════════════════════════════════════════════════
+     COLOR LABELS — per-node colour overrides with user-defined labels
+════════════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+let _colorPickerEl = null;
+
+// ─────────────────────────────────────────────────────────────────
+// renderColorLabels()
+//   Rebuilds the sidebar Color Labels list.
+// ─────────────────────────────────────────────────────────────────
+function renderColorLabels() {
+  const list = document.getElementById('color-labels-list');
+  if (!list) return;
+  if (colorLabels.length === 0) {
+    list.innerHTML = '<p class="text-xs text-gray-400 dark:text-gray-500 italic">No labels yet.</p>';
+    return;
+  }
+  list.innerHTML = colorLabels.map((cl, i) => `
+    <div class="flex items-center gap-1">
+      <input type="color" value="${cl.color}"
+             class="w-5 h-5 rounded cursor-pointer border-0 p-0 shrink-0"
+             onchange="colorLabels[${i}].color=this.value; _rerenderIfChart(); renderColorLabels();" />
+      <input type="text" value="${cl.label.replace(/"/g,'&amp;quot;')}"
+             class="flex-1 text-xs border border-gray-200 dark:border-gray-600 rounded px-1 py-0.5
+                     bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+             oninput="colorLabels[${i}].label=this.value; _rerenderIfChart();" />
+      <button onclick="colorLabels.splice(${i},1); renderColorLabels(); _rerenderIfChart();"
+              class="text-gray-400 hover:text-red-400 text-sm leading-none shrink-0" title="Remove">✕</button>
+    </div>
+  `).join('');
+}
+
+function addColorLabel() {
+  const EXTRA = ['#6366f1','#14b8a6','#f43f5e','#a855f7','#0ea5e9','#84cc16'];
+  colorLabels.push({ color: EXTRA[colorLabels.length % EXTRA.length], label: 'Label ' + (colorLabels.length + 1) });
+  renderColorLabels();
+}
+
+function _rerenderIfChart() {
+  if (orgNodes && orgNodes.length) rerenderChart();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// openColorPicker(node, anchorEl)
+//   Shows a floating popup listing all color labels so the user
+//   can pick one for the clicked node, or reset to the default.
+// ─────────────────────────────────────────────────────────────────
+function openColorPicker(node, anchorEl) {
+  closeColorPicker();
+
+  const rect       = anchorEl.getBoundingClientRect();
+  const currentIdx = nodeColorOverrides[node.id];
+
+  const popup = document.createElement('div');
+  popup.className = 'fixed z-50 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-2.5 w-48';
+  popup.style.left = Math.min(rect.left, window.innerWidth - 210) + 'px';
+  popup.style.top  = (rect.bottom + 8) + 'px';
+
+  let html = '<p class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1.5 px-1">Color label</p>';
+
+  if (colorLabels.length === 0) {
+    html += '<p class="text-xs text-gray-400 dark:text-gray-500 italic px-1">Define labels in the sidebar first.</p>';
+  } else {
+    colorLabels.forEach((cl, i) => {
+      const active = currentIdx === i;
+      html += `<button data-label-idx="${i}"
+        class="flex items-center gap-2 w-full text-left px-2 py-1 rounded-lg
+               hover:bg-gray-100 dark:hover:bg-gray-700
+               ${active ? 'bg-gray-100 dark:bg-gray-700' : ''}">
+        <span class="w-3.5 h-3.5 rounded-full shrink-0 pointer-events-none" style="background:${cl.color}"></span>
+        <span class="text-xs flex-1 pointer-events-none">${escHtml(cl.label)}</span>
+        ${active ? '<span class="text-brand-500 text-xs font-bold pointer-events-none">✓</span>' : ''}
+      </button>`;
+    });
+  }
+
+  if (currentIdx !== undefined) {
+    html += `<button data-label-idx="null"
+      class="flex items-center gap-2 w-full text-left px-2 py-1 rounded-lg
+             hover:bg-gray-100 dark:hover:bg-gray-700
+             border-t border-gray-100 dark:border-gray-700 mt-1 pt-1.5">
+      <span class="w-3.5 h-3.5 rounded-full border border-gray-300 dark:border-gray-600 shrink-0 pointer-events-none"></span>
+      <span class="text-xs text-gray-500 dark:text-gray-400 pointer-events-none">Reset to default</span>
+    </button>`;
+  }
+
+  popup.innerHTML = html;
+
+  // Event delegation — safe, no inline handlers
+  popup.addEventListener('click', e => {
+    const btn = e.target.closest('[data-label-idx]');
+    if (!btn) return;
+    const idx = btn.dataset.labelIdx === 'null' ? null : parseInt(btn.dataset.labelIdx);
+    applyColorLabel(node.id, idx);
+    closeColorPicker();
+  });
+
+  document.body.appendChild(popup);
+  _colorPickerEl = popup;
+
+  requestAnimationFrame(() => {
+    document.addEventListener('click', _onDocClickColorPicker);
+  });
+}
+
+function _onDocClickColorPicker(e) {
+  if (_colorPickerEl && !_colorPickerEl.contains(e.target)) {
+    closeColorPicker();
+  }
+}
+
+function closeColorPicker() {
+  if (_colorPickerEl) {
+    _colorPickerEl.remove();
+    _colorPickerEl = null;
+    document.removeEventListener('click', _onDocClickColorPicker);
+  }
+}
+
+function applyColorLabel(nodeId, labelIdx) {
+  if (labelIdx === null || labelIdx === undefined) {
+    delete nodeColorOverrides[nodeId];
+  } else {
+    nodeColorOverrides[nodeId] = labelIdx;
+  }
+  _rerenderIfChart();
+}
+
+// Initialise the sidebar list on load
+renderColorLabels();
+
+console.log('[Color Labels] ready ✓');
+</script>
+
+
 
 <!-- ═══════════════════════════════════════════════════════════════
      STEP 5 — Fit-to-view post-render, expand/collapse-all,
@@ -1258,47 +1496,12 @@ window.setupChart = function(roots) {
   requestAnimationFrame(() => requestAnimationFrame(fitToView));
 };
 
-// ─────────────────────────────────────────────────────────────────
-// Expand-all / Collapse-all buttons (added to toolbar dynamically)
-// ─────────────────────────────────────────────────────────────────
-(function addExpandCollapseButtons() {
-  const toolbar = document.getElementById('toolbar');
-  const divider = document.createElement('div');
-  divider.className = 'w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1';
-
-  const btnExpAll = document.createElement('button');
-  btnExpAll.className = 'btn-secondary text-sm';
-  btnExpAll.textContent = '⊞ All';
-  btnExpAll.title = 'Expand all branches';
-
-  const btnColAll = document.createElement('button');
-  btnColAll.className = 'btn-secondary text-sm';
-  btnColAll.textContent = '⊟ All';
-  btnColAll.title = 'Collapse all branches';
-
-  // Insert before the flex-1 spacer
-  const spacer = toolbar.querySelector('.flex-1');
-  toolbar.insertBefore(btnColAll,  spacer);
-  toolbar.insertBefore(btnExpAll,  btnColAll);
-  toolbar.insertBefore(divider,    btnExpAll);
-
-  function setAllCollapsed(val) {
-    orgNodes.forEach(n => { if (n.children.length) n.collapsed = val; });
-    if (!orgNodes.length) return;
-    const roots = orgNodes.filter(n => !orgNodes.find(p => p.id === n.managerId));
-    renderChart(roots);
-    requestAnimationFrame(() => requestAnimationFrame(fitToView));
-  }
-
-  btnExpAll.addEventListener('click', () => setAllCollapsed(false));
-  btnColAll.addEventListener('click', () => setAllCollapsed(true));
-})();
 
 // ─────────────────────────────────────────────────────────────────
 // Discard button — resets the entire chart back to empty state
 // ─────────────────────────────────────────────────────────────────
 document.getElementById('btn-discard').addEventListener('click', function () {
-  rawRows = []; colMap = {}; orgNodes = [];
+  rawRows = []; colMap = {}; orgNodes = []; nodeColorOverrides = {}; closeColorPicker();
   const root = document.getElementById('chart-root');
   root.querySelectorAll('.node-card').forEach(el => el.remove());
   document.getElementById('svg-connectors').innerHTML = '';
