@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>OrgChart Wizard</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23374151'/%3E%3Ccircle cx='32' cy='21' r='10' fill='%23a855f7'/%3E%3Cpath d='M10 56 Q10 39 32 39 Q54 39 54 56' fill='%23a855f7'/%3E%3C/svg%3E"/>
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = {
@@ -62,7 +63,7 @@
   }
 </style>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen flex flex-col font-sans">
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 h-screen overflow-hidden flex flex-col font-sans">
 
 <!-- ══════════════════════════════════════════════
      TOOLBAR
@@ -182,11 +183,6 @@
         <li>Depth: <span id="stat-depth" class="font-bold">—</span></li>
         <li>Layers: <span id="stat-layers" class="font-bold">—</span></li>
       </ul>
-    </div>
-
-    <div>
-      <p class="font-semibold mb-1 text-gray-500 dark:text-gray-400 uppercase tracking-wide text-xs">Legend</p>
-      <div id="legend-list" class="space-y-1"></div>
     </div>
 
     <div>
@@ -369,7 +365,16 @@ document.getElementById('btn-print').addEventListener('click', () => window.prin
 document.getElementById('btn-export-png').addEventListener('click', exportPNG);
 function exportPNG() {
   if (typeof html2canvas === 'undefined') { showError('html2canvas not loaded'); return; }
-  html2canvas(chartRoot, { backgroundColor: null, scale: 2 }).then(canvas => {
+  html2canvas(chartRoot, {
+    backgroundColor: '#ffffff',
+    scale: 2,
+    onclone: (_doc, el) => {
+      el.querySelectorAll('.node-card .rounded-xl').forEach(card => {
+        card.style.borderColor = '#000000';
+        card.style.backgroundColor = '#ffffff';
+      });
+    }
+  }).then(canvas => {
     const a = document.createElement('a');
     a.download = 'orgchart.png';
     a.href = canvas.toDataURL('image/png');
@@ -398,10 +403,13 @@ let orgNodes = [];
 // colorLabels       : user-defined [ { color, label }, … ]
 // nodeColorOverrides: { [nodeId]: labelIndex }  — per-node override
 let colorLabels = [
-  { color: '#ef4444', label: 'At Risk' },
-  { color: '#22c55e', label: 'High Performer' },
-  { color: '#f59e0b', label: 'On Leave' },
-  { color: '#3b82f6', label: 'New Hire' },
+  { color: '#3b82f6', label: 'Commercial' },
+  { color: '#10b981', label: 'Operations' },
+  { color: '#8b5cf6', label: 'R&D' },
+  { color: '#f59e0b', label: 'Finance' },
+  { color: '#ec4899', label: 'Marketing' },
+  { color: '#06b6d4', label: 'IT' },
+  { color: '#ef4444', label: 'HR' },
 ];
 let nodeColorOverrides = {};
 
@@ -860,14 +868,6 @@ function buildDeptColors(nodes) {
     }
   });
 
-  // Sidebar legend
-  const legendEl = document.getElementById('legend-list');
-  legendEl.innerHTML = Object.entries(deptColorMap).map(([dept, color]) => `
-    <div class="flex items-center gap-2">
-      <span class="w-3 h-3 rounded-full shrink-0" style="background:${color}"></span>
-      <span class="text-xs truncate">${dept}</span>
-    </div>
-  `).join('') || '<span class="text-xs text-gray-400">No departments</span>';
 }
 
 // Expose for card rendering (Step 4)
@@ -895,7 +895,21 @@ const NODE_H            = 80;    // card height px
 const H_GAP             = 16;    // horizontal gap between siblings
 const V_GAP             = 60;    // vertical gap between layers
 const LAZY_DEPTH        = 3;     // auto-collapse branches deeper than this on load (>2000 nodes)
-const MAX_CHILDREN_ROW  = 9999;  // all siblings always in one row (same Y level)
+const SPINE_GAP         = 32;    // gap between spine line and child card edges (vertical/fishbone)
+
+// ── Layout mode per node ─────────────────────────────────────────
+// ≤ 4 children → horizontal row (standard)
+// 5-6 children → vertical stack with spine on left, children indented right
+// > 6 children → fishbone: left/right columns off a central spine
+function childLayout(node) {
+  if (node.collapsed || !node.children.length) return 'leaf';
+  // CEO / root (layer 0): direct reports always stay in a horizontal row
+  if (node.layer === 0) return 'horizontal';
+  const n = node.children.length;
+  if (n <= 4)  return 'horizontal';
+  if (n <= 6)  return 'vertical';
+  return 'fishbone';
+}
 
 // ─────────────────────────────────────────────────────────────────
 // setupChart(roots)
@@ -942,17 +956,46 @@ function autoCollapseDeep(roots, maxDepth) {
 // ─────────────────────────────────────────────────────────────────
 function subtreeWidth(node) {
   if (node.collapsed || !node.children.length) return NODE_W;
-  // All children in one row — sum their widths
-  const totalW = node.children.reduce((s, c) => s + subtreeWidth(c), 0)
-               + H_GAP * (node.children.length - 1);
-  return Math.max(NODE_W, totalW);
+  const mode = childLayout(node);
+
+  if (mode === 'horizontal') {
+    return Math.max(NODE_W,
+      node.children.reduce((s, c) => s + subtreeWidth(c), 0)
+      + H_GAP * (node.children.length - 1));
+  }
+
+  if (mode === 'vertical') {
+    // Children indented to the right of the spine (parent centre-x).
+    // Right side needs: SPINE_GAP + max child subtree width.
+    // We make both halves equal so the parent card stays centred.
+    const maxChildW = Math.max(...node.children.map(c => subtreeWidth(c)));
+    return 2 * Math.max(NODE_W / 2, SPINE_GAP + maxChildW);
+  }
+
+  // fishbone: children split left / right off the spine (both sides equal)
+  const maxChildW = Math.max(...node.children.map(c => subtreeWidth(c)));
+  return 2 * Math.max(NODE_W / 2, SPINE_GAP + maxChildW);
 }
 
-// Vertical height of a subtree (single-row children only)
 function subtreeHeight(node) {
   if (node.collapsed || !node.children.length) return NODE_H;
-  const maxChildH = Math.max(...node.children.map(c => subtreeHeight(c)));
-  return NODE_H + V_GAP + maxChildH;
+  const mode = childLayout(node);
+
+  if (mode === 'horizontal') {
+    return NODE_H + V_GAP + Math.max(...node.children.map(c => subtreeHeight(c)));
+  }
+
+  if (mode === 'vertical') {
+    // Children stacked: sum of each child's full subtree height + gaps
+    return NODE_H + node.children.reduce((s, c) => s + V_GAP + subtreeHeight(c), 0);
+  }
+
+  // fishbone: left and right columns run in parallel — take the taller side
+  const leftH  = node.children.filter((_, i) => i % 2 === 0)
+                   .reduce((s, c) => s + V_GAP + subtreeHeight(c), 0);
+  const rightH = node.children.filter((_, i) => i % 2 !== 0)
+                   .reduce((s, c) => s + V_GAP + subtreeHeight(c), 0);
+  return NODE_H + Math.max(leftH, rightH);
 }
 
 function layout(roots) {
@@ -973,23 +1016,57 @@ function layout(roots) {
 }
 
 function placeSubtree(node, x, y, allocW, positions) {
-  // Centre this node in its allocated width
-  const cx = x + allocW / 2 - NODE_W / 2;
-  positions.set(node.id, { x: cx, y });
+  // Centre this node's card in its allocated width
+  positions.set(node.id, { x: x + allocW / 2 - NODE_W / 2, y });
 
   if (node.collapsed || !node.children.length) return;
 
-  // All children in a single row at the same Y — guarantees siblings are
-  // always at the same vertical level regardless of how many there are.
-  const childY   = y + NODE_H + V_GAP;
-  const totalCW  = node.children.reduce((s, c) => s + subtreeWidth(c), 0)
-                 + H_GAP * (node.children.length - 1);
-  let childX = x + allocW / 2 - totalCW / 2;
-  node.children.forEach(child => {
-    const cw = subtreeWidth(child);
-    placeSubtree(child, childX, childY, cw, positions);
-    childX += cw + H_GAP;
-  });
+  const mode   = childLayout(node);
+  const spineX = x + allocW / 2;          // parent centre = spine X
+
+  if (mode === 'horizontal') {
+    // ── All children in one row, spread left-to-right ──────────────
+    const totalCW = node.children.reduce((s, c) => s + subtreeWidth(c), 0)
+                  + H_GAP * (node.children.length - 1);
+    let childX = spineX - totalCW / 2;
+    const childY = y + NODE_H + V_GAP;
+    node.children.forEach(child => {
+      const cw = subtreeWidth(child);
+      placeSubtree(child, childX, childY, cw, positions);
+      childX += cw + H_GAP;
+    });
+
+  } else if (mode === 'vertical') {
+    // ── Children stacked vertically, indented to the right of spine ─
+    let childY = y + NODE_H + V_GAP;
+    node.children.forEach(child => {
+      const cw = subtreeWidth(child);
+      // Place each child so its subtree starts at spineX + SPINE_GAP
+      placeSubtree(child, spineX + SPINE_GAP, childY, cw, positions);
+      childY += subtreeHeight(child) + V_GAP;
+    });
+
+  } else {
+    // ── Fishbone: even-indexed → left column, odd-indexed → right ──
+    const leftChildren  = node.children.filter((_, i) => i % 2 === 0);
+    const rightChildren = node.children.filter((_, i) => i % 2 !== 0);
+
+    let leftY = y + NODE_H + V_GAP;
+    leftChildren.forEach(child => {
+      const cw = subtreeWidth(child);
+      // Right edge of child subtree sits at spineX − SPINE_GAP
+      placeSubtree(child, spineX - SPINE_GAP - cw, leftY, cw, positions);
+      leftY += subtreeHeight(child) + V_GAP;
+    });
+
+    let rightY = y + NODE_H + V_GAP;
+    rightChildren.forEach(child => {
+      const cw = subtreeWidth(child);
+      // Left edge of child subtree sits at spineX + SPINE_GAP
+      placeSubtree(child, spineX + SPINE_GAP, rightY, cw, positions);
+      rightY += subtreeHeight(child) + V_GAP;
+    });
+  }
 }
 
 function maxY(node, positions) {
@@ -1081,20 +1158,27 @@ function revealOnScroll(roots, positions, chartRoot, area) {
 //   Builds a single org-chart node card with avatar initial,
 //   name, title, dept badge, collapse button, and click handler.
 // ─────────────────────────────────────────────────────────────────
-// Shorten a full name for the card: if > 18 chars, use "F. Last Name"
-function displayName(fullName) {
+// Format name for the card box:
+//   first name → initial only (e.g. "R.")
+//   surname    → full UPPERCASE
+// Both rendered at the same font size.
+function formatNameHtml(fullName) {
   const parts = fullName.trim().split(/\s+/);
-  if (fullName.length <= 18 || parts.length < 2) return fullName;
-  return parts[0][0].toUpperCase() + '. ' + parts.slice(1).join(' ');
+  const initial = parts[0][0].toUpperCase() + '.';
+  const surname = parts.slice(1).join(' ');
+  const initialHtml = `<span>${escHtml(initial)}</span>`;
+  const surnameHtml = surname
+    ? ` <span style="text-transform:uppercase;letter-spacing:.04em">${escHtml(surname)}</span>`
+    : '';
+  return initialHtml + surnameHtml;
 }
 
 function createCard(node, pos) {
   const color  = nodeColor(node);
   const initials = node.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
   const isSelected = node.id === selectedId;
-  const shortName = displayName(node.name);
+  const nameHtml = formatNameHtml(node.name);
   const manager = orgNodes.find(n => n.id === node.managerId);
-  const managerLine = manager ? '\nReports to: ' + manager.name : '';
   function countDescendants(n) {
     return n.children.reduce((sum, c) => sum + 1 + countDescendants(c), 0);
   }
@@ -1104,11 +1188,6 @@ function createCard(node, pos) {
   }
   const totalReports = countDescendants(node);
   const layers = countDepth(node);
-  const reportsLine = totalReports > 0
-    ? '\nTotal reports: ' + totalReports + '  |  Layers below: ' + layers
-    : '';
-  const tooltipText = node.name + (node.title ? ' — ' + node.title : '') + managerLine + reportsLine;
-
   const card = document.createElement('div');
   card.id = 'card-' + node.id;
   card.className = 'node-card';
@@ -1135,7 +1214,7 @@ function createCard(node, pos) {
       </div>
       <!-- Text -->
       <div class="flex-1 min-w-0">
-        <p class="text-xs font-semibold leading-tight dark:text-gray-100" style="word-break:break-word">${escHtml(shortName)}</p>
+        <p class="text-xs font-semibold leading-tight dark:text-gray-100" style="word-break:break-word">${nameHtml}</p>
         ${node.title ? `<p class="text-[10px] text-gray-500 dark:text-gray-400 truncate">${escHtml(node.title)}</p>` : ''}
         ${node.dept  ? `<span class="text-[9px] font-bold uppercase px-1 rounded"
                               style="color:${color};background:${color}18">${escHtml(node.dept)}</span>` : ''}
@@ -1163,8 +1242,17 @@ function createCard(node, pos) {
     </div>
   `;
 
-  // Set tooltip with newlines preserved (must be set via JS, not innerHTML attribute)
-  card.querySelector('.rounded-xl').title = tooltipText;
+  // Custom tooltip data
+  const tooltipData = {
+    name: node.name,
+    title: node.title || '',
+    manager: manager ? manager.name : '',
+    totalReports,
+    layers
+  };
+  const inner = card.querySelector('.rounded-xl');
+  inner.addEventListener('mouseenter', e => showOrgTooltip(e, tooltipData));
+  inner.addEventListener('mouseleave', hideOrgTooltip);
 
   // Click → select node + open colour picker
   card.querySelector('.rounded-xl').addEventListener('click', e => {
@@ -1239,36 +1327,69 @@ function drawConnectors(roots, positions) {
     const pPos = positions.get(node.id);
     if (!pPos || node.collapsed || !node.children.length) return;
 
-    const px = pPos.x + NODE_W / 2;   // parent centre-x
-    const py = pPos.y + NODE_H;        // parent bottom-y
+    const px    = pPos.x + NODE_W / 2;   // parent centre-x = spine X
+    const py    = pPos.y + NODE_H;        // parent bottom-y
     const color = nodeColor(node);
+    const mode  = childLayout(node);
 
-    // Bus connector: all children share one horizontal bus at the same Y.
-    // ① Stem down from parent, ② horizontal bus across all children,
-    // ③ vertical drop to each child. No crossings possible because every
-    // sibling group is always laid out in a single row.
-    const childData = node.children.map(c => {
-      const p = positions.get(c.id);
-      return p ? { node: c, cx: p.x + NODE_W / 2, cy: p.y } : null;
-    }).filter(Boolean);
+    if (mode === 'horizontal') {
+      // ── Bus connector: horizontal bus + drops ─────────────────────
+      const childData = node.children.map(c => {
+        const p = positions.get(c.id);
+        return p ? { node: c, cx: p.x + NODE_W / 2, cy: p.y } : null;
+      }).filter(Boolean);
+      if (!childData.length) { node.children.forEach(c => drawEdges(c)); return; }
 
-    if (childData.length) {
-      const busY    = childData[0].cy - Math.round(V_GAP * 0.5);
-      const xs      = childData.map(d => d.cx);
+      const busY     = childData[0].cy - Math.round(V_GAP * 0.5);
+      const xs       = childData.map(d => d.cx);
       const busLeft  = Math.min(px, ...xs);
       const busRight = Math.max(px, ...xs);
 
-      // ① Stem
-      makeLine(px, py, px, busY, color);
-      // ② Bus
-      if (busLeft < busRight) makeLine(busLeft, busY, busRight, busY, color);
-      // ③ Drops
-      childData.forEach(({ node: child, cx, cy }) => {
-        makeLine(cx, busY, cx, cy, nodeColor(child));
+      makeLine(px, py, px, busY, color);                                   // stem
+      if (busLeft < busRight) makeLine(busLeft, busY, busRight, busY, color); // bus
+      childData.forEach(({ node: child, cx, cy }) =>
+        makeLine(cx, busY, cx, cy, nodeColor(child)));                     // drops
+
+    } else if (mode === 'vertical') {
+      // ── Spine on left, horizontal arms to each child ──────────────
+      const childPositions = node.children.map(c => positions.get(c.id)).filter(Boolean);
+      if (!childPositions.length) { node.children.forEach(c => drawEdges(c)); return; }
+
+      // Spine runs from parent bottom to the mid-height of the last child
+      const lastPos   = childPositions[childPositions.length - 1];
+      const spineEnd  = lastPos.y + NODE_H / 2;
+      makeLine(px, py, px, spineEnd, color);
+
+      // One horizontal arm per child: spine → child card left edge
+      node.children.forEach(child => {
+        const cPos = positions.get(child.id);
+        if (!cPos) return;
+        const armY = cPos.y + NODE_H / 2;
+        makeLine(px, armY, cPos.x, armY, nodeColor(child));   // arm
+      });
+
+    } else {
+      // ── Fishbone: spine + left/right arms ─────────────────────────
+      const allPos = node.children.map(c => positions.get(c.id)).filter(Boolean);
+      if (!allPos.length) { node.children.forEach(c => drawEdges(c)); return; }
+
+      // Spine runs from parent bottom to the deepest child's mid-height
+      const spineEnd = Math.max(...allPos.map(p => p.y + NODE_H / 2));
+      makeLine(px, py, px, spineEnd, color);
+
+      node.children.forEach((child, i) => {
+        const cPos = positions.get(child.id);
+        if (!cPos) return;
+        const armY    = cPos.y + NODE_H / 2;
+        const isLeft  = i % 2 === 0;
+        // Left children: arm goes from spine rightward to the child's right card edge
+        // Right children: arm goes from spine rightward to the child's left card edge
+        const armEndX = isLeft ? cPos.x + NODE_W : cPos.x;
+        makeLine(px, armY, armEndX, armY, nodeColor(child));
       });
     }
 
-    // Recurse
+    // Recurse into all children regardless of mode
     node.children.forEach(child => drawEdges(child));
   }
 
@@ -1344,16 +1465,23 @@ function renderColorLabels() {
     return;
   }
   list.innerHTML = colorLabels.map((cl, i) => `
-    <div class="flex items-center gap-1">
+    <div class="flex items-center gap-1 w-full overflow-hidden">
       <input type="color" value="${cl.color}"
              class="w-5 h-5 rounded cursor-pointer border-0 p-0 shrink-0"
              onchange="colorLabels[${i}].color=this.value; _rerenderIfChart(); renderColorLabels();" />
       <input type="text" value="${cl.label.replace(/"/g,'&amp;quot;')}"
-             class="flex-1 text-xs border border-gray-200 dark:border-gray-600 rounded px-1 py-0.5
+             class="flex-1 min-w-0 text-xs border border-gray-200 dark:border-gray-600 rounded px-1 py-0.5
                      bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
              oninput="colorLabels[${i}].label=this.value; _rerenderIfChart();" />
       <button onclick="colorLabels.splice(${i},1); renderColorLabels(); _rerenderIfChart();"
-              class="text-gray-400 hover:text-red-400 text-sm leading-none shrink-0" title="Remove">✕</button>
+              class="shrink-0 p-1 rounded text-gray-400 hover:text-red-400 hover:bg-red-50
+                     dark:hover:bg-red-900/20 transition-colors" title="Remove label">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+          <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+        </svg>
+      </button>
     </div>
   `).join('');
 }
@@ -1373,53 +1501,84 @@ function _rerenderIfChart() {
 //   Shows a floating popup listing all color labels so the user
 //   can pick one for the clicked node, or reset to the default.
 // ─────────────────────────────────────────────────────────────────
+// _colorPickerScope : 'single' | 'reports'  — remembered across popup opens
+let _colorPickerScope = 'single';
+
 function openColorPicker(node, anchorEl) {
   closeColorPicker();
 
   const rect       = anchorEl.getBoundingClientRect();
   const currentIdx = nodeColorOverrides[node.id];
+  const hasReports = node.children && node.children.length > 0;
 
   const popup = document.createElement('div');
-  popup.className = 'fixed z-50 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-2.5 w-48';
-  popup.style.left = Math.min(rect.left, window.innerWidth - 210) + 'px';
+  popup.className = 'fixed z-50 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-2.5 w-52';
+  popup.style.left = Math.min(rect.left, window.innerWidth - 225) + 'px';
   popup.style.top  = (rect.bottom + 8) + 'px';
 
-  let html = '<p class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1.5 px-1">Color label</p>';
+  // Scope toggle — only when the node has direct reports
+  const scopeHtml = hasReports ? `
+    <div class="flex gap-1 mb-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
+      <button data-scope="single"
+        class="flex-1 text-[10px] font-semibold py-1 rounded-md transition-colors
+               ${_colorPickerScope === 'single'
+                 ? 'bg-white dark:bg-gray-600 shadow text-gray-800 dark:text-gray-100'
+                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}">
+        Person only
+      </button>
+      <button data-scope="reports"
+        class="flex-1 text-[10px] font-semibold py-1 rounded-md transition-colors
+               ${_colorPickerScope === 'reports'
+                 ? 'bg-white dark:bg-gray-600 shadow text-gray-800 dark:text-gray-100'
+                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}">
+        + Direct reports
+      </button>
+    </div>` : '';
 
+  let swatches = '';
   if (colorLabels.length === 0) {
-    html += '<p class="text-xs text-gray-400 dark:text-gray-500 italic px-1">Define labels in the sidebar first.</p>';
+    swatches = '<p class="text-xs text-gray-400 dark:text-gray-500 italic px-1">Define labels in the sidebar first.</p>';
   } else {
     colorLabels.forEach((cl, i) => {
       const active = currentIdx === i;
-      html += `<button data-label-idx="${i}"
+      swatches += `<button data-label-idx="${i}"
         class="flex items-center gap-2 w-full text-left px-2 py-1 rounded-lg
                hover:bg-gray-100 dark:hover:bg-gray-700
                ${active ? 'bg-gray-100 dark:bg-gray-700' : ''}">
         <span class="w-3.5 h-3.5 rounded-full shrink-0 pointer-events-none" style="background:${cl.color}"></span>
         <span class="text-xs flex-1 pointer-events-none">${escHtml(cl.label)}</span>
-        ${active ? '<span class="text-brand-500 text-xs font-bold pointer-events-none">✓</span>' : ''}
+        ${active ? '<span class="text-brand-500 text-xs font-bold pointer-events-none">&#10003;</span>' : ''}
       </button>`;
     });
   }
 
-  if (currentIdx !== undefined) {
-    html += `<button data-label-idx="null"
+  const resetBtn = currentIdx !== undefined ? `
+    <button data-label-idx="null"
       class="flex items-center gap-2 w-full text-left px-2 py-1 rounded-lg
              hover:bg-gray-100 dark:hover:bg-gray-700
              border-t border-gray-100 dark:border-gray-700 mt-1 pt-1.5">
       <span class="w-3.5 h-3.5 rounded-full border border-gray-300 dark:border-gray-600 shrink-0 pointer-events-none"></span>
       <span class="text-xs text-gray-500 dark:text-gray-400 pointer-events-none">Reset to default</span>
-    </button>`;
-  }
+    </button>` : '';
 
-  popup.innerHTML = html;
+  popup.innerHTML = `
+    <p class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1.5 px-1">Color label</p>
+    ${scopeHtml}${swatches}${resetBtn}
+  `;
 
-  // Event delegation — safe, no inline handlers
   popup.addEventListener('click', e => {
-    const btn = e.target.closest('[data-label-idx]');
-    if (!btn) return;
-    const idx = btn.dataset.labelIdx === 'null' ? null : parseInt(btn.dataset.labelIdx);
-    applyColorLabel(node.id, idx);
+    // Scope toggle
+    const scopeBtn = e.target.closest('[data-scope]');
+    if (scopeBtn) {
+      _colorPickerScope = scopeBtn.dataset.scope;
+      openColorPicker(node, anchorEl); // reopen with updated toggle
+      return;
+    }
+    // Label selection
+    const labelBtn = e.target.closest('[data-label-idx]');
+    if (!labelBtn) return;
+    const idx = labelBtn.dataset.labelIdx === 'null' ? null : parseInt(labelBtn.dataset.labelIdx);
+    applyColorLabel(node, idx, _colorPickerScope);
     closeColorPicker();
   });
 
@@ -1445,12 +1604,18 @@ function closeColorPicker() {
   }
 }
 
-function applyColorLabel(nodeId, labelIdx) {
-  if (labelIdx === null || labelIdx === undefined) {
-    delete nodeColorOverrides[nodeId];
-  } else {
-    nodeColorOverrides[nodeId] = labelIdx;
+function applyColorLabel(node, labelIdx, scope) {
+  const targets = [node.id];
+  if (scope === 'reports' && node.children) {
+    node.children.forEach(c => targets.push(c.id));
   }
+  targets.forEach(id => {
+    if (labelIdx === null || labelIdx === undefined) {
+      delete nodeColorOverrides[id];
+    } else {
+      nodeColorOverrides[id] = labelIdx;
+    }
+  });
   _rerenderIfChart();
 }
 
@@ -1511,7 +1676,7 @@ document.getElementById('btn-discard').addEventListener('click', function () {
   document.getElementById('stat-nodes') .textContent = '—';
   document.getElementById('stat-depth') .textContent = '—';
   document.getElementById('stat-layers').textContent = '—';
-  document.getElementById('legend-list').innerHTML = '';
+
   document.getElementById('unassigned-panel').classList.add('hidden');
   document.getElementById('node-detail').classList.add('hidden');
   this.classList.add('hidden');
@@ -1581,6 +1746,71 @@ document.getElementById('chart-area').addEventListener('wheel', e => {
 
 console.log('[Step 5] Polish + expand/collapse-all ready ✓');
 console.log('OrgChart Wizard fully loaded ✓');
+</script>
+
+<!-- ── Custom card tooltip ────────────────────────────── -->
+<div id="org-tooltip"
+  style="display:none;position:fixed;z-index:9999;pointer-events:none;
+         max-width:240px;padding:10px 13px;border-radius:10px;
+         background:#ffffff;color:#1e293b;
+         border:1px solid #e2e8f0;
+         box-shadow:0 4px 20px rgba(0,0,0,.12);
+         font-family:inherit;line-height:1.45;"></div>
+
+<script>
+(function(){
+  const tip = document.getElementById('org-tooltip');
+  let hideTimer;
+
+  window.showOrgTooltip = function(e, data) {
+    clearTimeout(hideTimer);
+    const { name, title, manager, totalReports, layers } = data;
+
+    let html = `<div style="font-size:13px;font-weight:600;color:#0f172a;margin-bottom:2px">${escHtml(name)}</div>`;
+    if (title) {
+      html += `<div style="font-size:11px;color:#64748b;margin-bottom:5px">${escHtml(title)}</div>`;
+    }
+    if (manager) {
+      html += `<div style="font-size:9px;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:1px">Reports to</div>
+               <div style="font-size:11px;color:#334155">${escHtml(manager)}</div>`;
+    }
+    if (totalReports > 0) {
+      html += `<div style="margin-top:7px;padding-top:7px;border-top:1px solid #e2e8f0;
+                            display:flex;gap:14px">
+                 <div>
+                   <div style="font-size:9px;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em">Total reports</div>
+                   <div style="font-size:12px;font-weight:700;color:#4f46e5">${totalReports}</div>
+                 </div>
+                 <div>
+                   <div style="font-size:9px;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em">Layers below</div>
+                   <div style="font-size:12px;font-weight:700;color:#4f46e5">${layers}</div>
+                 </div>
+               </div>`;
+    }
+    tip.innerHTML = html;
+    tip.style.display = 'block';
+    positionTip(e);
+  };
+
+  window.hideOrgTooltip = function() {
+    hideTimer = setTimeout(() => { tip.style.display = 'none'; }, 120);
+  };
+
+  function positionTip(e) {
+    const pad = 12;
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    let x = e.clientX + pad, y = e.clientY + pad;
+    if (x + tw > window.innerWidth  - pad) x = e.clientX - tw - pad;
+    if (y + th > window.innerHeight - pad) y = e.clientY - th - pad;
+    tip.style.left = x + 'px';
+    tip.style.top  = y + 'px';
+  }
+
+  document.addEventListener('mousemove', e => {
+    if (tip.style.display === 'none') return;
+    positionTip(e);
+  });
+})();
 </script>
 
 </body>
