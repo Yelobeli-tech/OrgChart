@@ -1,10 +1,15 @@
+<!--
+  OrgCharter
+  by Marc Lamure
+-->
 <!DOCTYPE html>
 <html lang="en" class="light">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>OrgChart Wizard</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23374151'/%3E%3Ccircle cx='32' cy='21' r='10' fill='%23a855f7'/%3E%3Cpath d='M10 56 Q10 39 32 39 Q54 39 54 56' fill='%23a855f7'/%3E%3C/svg%3E"/>
+<meta name="author" content="Marc Lamure"/>
+<title>OrgCharter</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='white' stroke='%23a855f7' stroke-width='4'/%3E%3Ccircle cx='32' cy='22' r='9' fill='%23a855f7'/%3E%3Cpath d='M12 56 Q12 40 32 40 Q52 40 52 56' fill='%23a855f7'/%3E%3C/svg%3E"/>
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = {
@@ -91,14 +96,17 @@
   style="background:#6d28d9">
 
   <!-- Logo — fixed width, never wraps -->
-  <div class="flex items-center gap-2 flex-shrink-0 mr-3 py-1 whitespace-nowrap">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"
-         class="w-7 h-7 rounded-lg" style="background:#374151">
-      <circle cx="32" cy="21" r="10" fill="#a855f7"/>
-      <path d="M10 56 Q10 39 32 39 Q54 39 54 56" fill="#a855f7"/>
+  <div class="flex items-center gap-2 flex-shrink-0 py-1 px-3 -ml-4 whitespace-nowrap self-stretch"
+       style="background:rgba(0,0,0,0.18)">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" class="w-7 h-7">
+      <circle cx="32" cy="32" r="30" fill="white" stroke="#a855f7" stroke-width="4"/>
+      <circle cx="32" cy="22" r="9" fill="#a855f7"/>
+      <path d="M12 56 Q12 40 32 40 Q52 40 52 56" fill="#a855f7"/>
     </svg>
-    <span class="font-bold text-white text-lg">OrgChart Wizard</span>
+    <span class="font-bold text-white text-lg tracking-tight">OrgCharter</span>
   </div>
+  <!-- Divider -->
+  <div class="self-stretch w-px mx-4 opacity-30" style="background:white"></div>
 
   <!-- All controls — wrap freely; row 2 aligns under Import -->
   <div class="flex flex-wrap items-center gap-3 flex-1">
@@ -114,6 +122,19 @@
     Import Excel / CSV
     <input id="file-input" type="file" accept=".xlsx,.xls,.csv" class="hidden"/>
   </label>
+
+  <!-- Remap columns -->
+  <button id="btn-remap"
+    onclick="remapColumns()"
+    class="hidden items-center gap-1.5 text-sm font-medium px-4 py-1.5 rounded-lg
+           border border-white/30 bg-white/15 text-white/80
+           hover:bg-white/25 hover:text-white shadow-sm transition-colors">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M4 6h16M4 12h10M4 18h7M15 15l3 3 3-3M18 18V9"/>
+    </svg>
+    Remap
+  </button>
 
   <!-- Company Dropdown -->
   <div class="flex items-center gap-1">
@@ -237,70 +258,106 @@
 ════════════════════════════════════════════════ -->
 <main class="flex flex-1 overflow-hidden">
 
-  <!-- Sidebar: stats / legend -->
+  <!-- Sidebar: tabbed overview / detail -->
   <aside id="sidebar"
     class="w-52 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700
-           p-3 flex flex-col gap-4 text-sm overflow-y-auto shrink-0">
+           flex flex-col text-sm shrink-0">
 
-    <div>
-      <p class="font-semibold mb-1 text-gray-500 dark:text-gray-400 uppercase tracking-wide text-xs">Stats</p>
-      <ul id="stats-list" class="space-y-1 text-gray-700 dark:text-gray-300">
-        <li>Nodes: <span id="stat-nodes" class="font-bold">—</span></li>
-        <li>Depth: <span id="stat-depth" class="font-bold">—</span></li>
-        <li>Layers: <span id="stat-layers" class="font-bold">—</span></li>
-      </ul>
-    </div>
-
-    <div>
-      <p class="font-semibold mb-1 text-gray-500 dark:text-gray-400 uppercase tracking-wide text-xs">Color Labels</p>
-      <div id="color-labels-list" class="space-y-1.5"></div>
-      <button onclick="addColorLabel()"
-        class="mt-2 w-full text-xs text-brand-500 hover:text-brand-700
-               border border-dashed border-brand-300 dark:border-brand-700
-               rounded-lg py-1 hover:bg-brand-50 dark:hover:bg-brand-950/20 transition-colors">
-        + Add label
+    <!-- Tab bar -->
+    <div class="flex border-b border-gray-200 dark:border-gray-700 shrink-0">
+      <button id="tab-btn-overview" onclick="switchSidebarTab('overview')"
+        class="flex-1 py-2 text-xs font-semibold uppercase tracking-wide border-b-2 transition-colors
+               border-purple-500 text-purple-700 dark:text-purple-400">
+        Overview
+      </button>
+      <button id="tab-btn-detail" onclick="switchSidebarTab('detail')"
+        class="flex-1 py-2 text-xs font-semibold uppercase tracking-wide border-b-2 transition-colors
+               border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+        Costs
       </button>
     </div>
 
-    <div id="hidden-nodes-panel" class="hidden">
-      <button onclick="toggleSidebarSection('hidden-nodes-body','hidden-chevron')"
-        class="flex items-center justify-between w-full group">
-        <p class="font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide text-xs">Hidden (<span id="hidden-count">0</span>)</p>
-        <svg id="hidden-chevron" class="w-3 h-3 text-gray-400 transition-transform"
-             fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-        </svg>
-      </button>
-      <div id="hidden-nodes-body" class="mt-1">
-        <div id="hidden-nodes-list" class="space-y-0.5 max-h-40 overflow-y-auto
-             border border-gray-200 dark:border-gray-700 rounded-lg p-1.5
-             bg-gray-50 dark:bg-gray-900/40"></div>
+    <!-- ── Overview tab ────────────────────────────────────── -->
+    <div id="tab-overview" class="flex flex-col gap-4 p-3 overflow-y-auto flex-1">
+
+      <div>
+        <p class="font-semibold mb-1 text-gray-500 dark:text-gray-400 uppercase tracking-wide text-xs">Stats</p>
+        <ul id="stats-list" class="space-y-1 text-gray-700 dark:text-gray-300">
+          <li>Nodes: <span id="stat-nodes" class="font-bold">—</span></li>
+          <li>Depth: <span id="stat-depth" class="font-bold">—</span></li>
+          <li>Layers: <span id="stat-layers" class="font-bold">—</span></li>
+        </ul>
       </div>
-    </div>
 
-    <div id="unassigned-panel" class="hidden">
-      <button onclick="toggleSidebarSection('unassigned-body','unassigned-chevron')"
-        class="flex items-center justify-between w-full group">
-        <p class="font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide text-xs">No manager (<span id="unassigned-count">0</span>)</p>
-        <svg id="unassigned-chevron" class="w-3 h-3 text-gray-400 transition-transform"
-             fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-        </svg>
-      </button>
-      <div id="unassigned-body" class="mt-1">
-        <p class="text-[10px] text-gray-400 dark:text-gray-500 mb-1">
-          These employees have no "report to" code and are excluded from the chart.
-        </p>
-        <div id="unassigned-list" class="space-y-0.5 max-h-40 overflow-y-auto
-             border border-amber-200 dark:border-amber-900/40 rounded-lg p-1.5 bg-amber-50 dark:bg-amber-950/20">
+      <div>
+        <p class="font-semibold mb-1 text-gray-500 dark:text-gray-400 uppercase tracking-wide text-xs">Color Labels</p>
+        <div id="color-labels-list" class="space-y-1.5"></div>
+        <button onclick="addColorLabel()"
+          class="mt-2 w-full text-xs text-brand-500 hover:text-brand-700
+                 border border-dashed border-brand-300 dark:border-brand-700
+                 rounded-lg py-1 hover:bg-brand-50 dark:hover:bg-brand-950/20 transition-colors">
+          + Add label
+        </button>
+      </div>
+
+      <!-- Exceptions: hidden nodes + no supervisor grouped -->
+      <div id="exceptions-group" class="hidden">
+        <p class="font-semibold mb-1.5 text-gray-500 dark:text-gray-400 uppercase tracking-wide text-xs">Exceptions</p>
+        <div class="flex flex-col gap-2">
+
+          <div id="hidden-nodes-panel" class="hidden">
+            <button onclick="toggleSidebarSection('hidden-nodes-body','hidden-chevron')"
+              class="flex items-center justify-between w-full">
+              <p class="font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide text-xs">Hidden (<span id="hidden-count">0</span>)</p>
+              <svg id="hidden-chevron" class="w-3 h-3 text-gray-400 transition-transform"
+                   fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </button>
+            <div id="hidden-nodes-body" class="mt-1">
+              <div id="hidden-nodes-list" class="space-y-0.5 max-h-32 overflow-y-auto
+                   border border-gray-200 dark:border-gray-700 rounded-lg p-1.5
+                   bg-gray-50 dark:bg-gray-900/40"></div>
+            </div>
+          </div>
+
+          <div id="unassigned-panel" class="hidden">
+            <button onclick="toggleSidebarSection('unassigned-body','unassigned-chevron')"
+              class="flex items-center justify-between w-full">
+              <p class="font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide text-xs">No supervisor (<span id="unassigned-count">0</span>)</p>
+              <svg id="unassigned-chevron" class="w-3 h-3 text-gray-400 transition-transform"
+                   fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </button>
+            <div id="unassigned-body" class="mt-1">
+              <p class="text-[10px] text-gray-400 dark:text-gray-500 mb-1">
+                No "report to" code — excluded from the chart.
+              </p>
+              <div id="unassigned-list" class="space-y-0.5 max-h-32 overflow-y-auto
+                   border border-amber-200 dark:border-amber-900/40 rounded-lg p-1.5
+                   bg-amber-50 dark:bg-amber-950/20"></div>
+            </div>
+          </div>
+
         </div>
       </div>
-    </div>
 
-    <div id="node-detail" class="hidden">
-      <p class="font-semibold mb-1 text-gray-500 dark:text-gray-400 uppercase tracking-wide text-xs">Selected</p>
-      <div id="node-detail-body" class="space-y-1 text-gray-700 dark:text-gray-300"></div>
-    </div>
+    </div><!-- /tab-overview -->
+
+    <!-- ── Costs tab ─────────────────────────────────────── -->
+    <div id="tab-detail" style="display:none"
+         class="flex flex-col p-3 overflow-y-auto flex-1">
+      <p id="detail-empty"
+         class="text-xs text-gray-400 dark:text-gray-500 italic text-center mt-10">
+        Click a person on the chart to see their details.
+      </p>
+      <div id="node-detail" class="hidden">
+        <p class="font-semibold mb-1 text-gray-500 dark:text-gray-400 uppercase tracking-wide text-xs">Selected</p>
+        <div id="node-detail-body" class="space-y-1 text-gray-700 dark:text-gray-300"></div>
+      </div>
+    </div><!-- /tab-detail -->
+
   </aside>
 
   <!-- Chart canvas -->
@@ -450,6 +507,7 @@ function applyZoom(z) {
   chartRoot.style.transform = `scale(${zoomLevel})`;
   chartRoot.style.transformOrigin = 'top left';
   zoomLabel.textContent = Math.round(zoomLevel * 100) + '%';
+  try { localStorage.setItem(ZOOM_KEY, zoomLevel); } catch(e) {}
 }
 document.getElementById('btn-zoom-in') .addEventListener('click', () => applyZoom(zoomLevel + 0.1));
 document.getElementById('btn-zoom-out').addEventListener('click', () => applyZoom(zoomLevel - 0.1));
@@ -502,7 +560,6 @@ function exportPNG() {
   });
 }
 
-console.log('[Step 1] Skeleton ready ✓');
 </script>
 
 <!-- ═══════════════════════════════════════════════════════════════
@@ -515,9 +572,10 @@ console.log('[Step 1] Skeleton ready ✓');
 // rawRows  : Array of plain objects (one per spreadsheet row)
 // colMap   : { id, name, title, managerId, dept, email, avatar }
 // orgNodes : final processed node array
-let rawRows  = [];
-let colMap   = {};
-let orgNodes = [];
+let rawRows       = [];
+let colMap        = {};
+let orgNodes      = [];
+let costCurrency  = '€';   // detected from the data; updated by mapColumns
 
 // ── Color Labels ─────────────────────────────────────────────────
 // colorLabels       : user-defined [ { color, label }, … ]
@@ -616,7 +674,7 @@ function guessMapping(headers) {
     managerId: [/manager.?id/, /mgr.?id/, /reports.?to/, /parent.?id/, /supervisor.?id/],
     title:     [/^title$/, /job.?title/, /position/, /role/],
     dept:      [/^dept$/, /department/, /team/, /group/, /division/],
-    cost:      [/^cost$/, /salary/, /wage/, /remuneration/, /pay/, /compensation/],
+    cost:      [/cost/, /salary/, /wage/, /remuneration/, /pay/, /compensation/, /budget/],
   };
 
   const guess = {};
@@ -629,10 +687,15 @@ function guessMapping(headers) {
   return guess;
 }
 
-function openWizardModal(headers) {
-  const guess = guessMapping(headers);
-  const optionsHtml = ['(none)', ...headers]
-    .map(h => `<option value="${h}">${h}</option>`).join('');
+// Re-open the wizard with the already-loaded data, pre-filled with current mapping
+function remapColumns() {
+  if (!rawRows.length) { showError('No data loaded — import a file first.'); return; }
+  const headers = Object.keys(rawRows[0]);
+  openWizardModal(headers, colMap);
+}
+
+function openWizardModal(headers, existingMap) {
+  const guess = existingMap || guessMapping(headers);
 
   function selectsRow(field, label, required, hint) {
     const sel = guess[field] || '(none)';
@@ -660,7 +723,7 @@ function openWizardModal(headers) {
 
   const previewRows = rawRows.slice(0, 3).map(r =>
     `<tr>${headers.slice(0,6).map(h =>
-      `<td class="px-2 py-1 border border-gray-200 dark:border-gray-700 text-xs truncate max-w-[100px]">${r[h] ?? ''}</td>`
+      `<td class="px-2 py-1 border border-gray-200 dark:border-gray-700 text-xs truncate max-w-[100px]">${escHtml(String(r[h] ?? ''))}</td>`
     ).join('')}</tr>`
   ).join('');
 
@@ -679,7 +742,7 @@ function openWizardModal(headers) {
         <table class="text-xs border-collapse">
           <thead>
             <tr>${headers.slice(0,6).map(h =>
-              `<th class="px-2 py-1 border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 font-semibold">${h}</th>`
+              `<th class="px-2 py-1 border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 font-semibold">${escHtml(h)}</th>`
             ).join('')}</tr>
           </thead>
           <tbody>${previewRows}</tbody>
@@ -807,7 +870,6 @@ function loadDemoData() {
   buildFromRaw();  // Step 3
 }
 
-console.log('[Step 2] parseExcelWizard + demo ready ✓');
 </script>
 
 <!-- ═══════════════════════════════════════════════════════════════
@@ -842,6 +904,7 @@ function mapColumns(rows, map) {
     dept:      map.dept      ? String(r[map.dept]      ?? '').trim() : '',
     managerId: map.managerId ? normalizeId(r[map.managerId]) : '',
     cost:      map.cost      ? (parseFloat(String(r[map.cost] ?? '').replace(/[^0-9.\-]/g, '')) || 0) : 0,
+    _rawCost:  map.cost      ? String(r[map.cost] ?? '') : '',
     children:  [],   // filled by computeLayers
     layer:     0,    // BFS depth
     collapsed: false,
@@ -933,6 +996,16 @@ function buildFromRaw() {
   hiddenNodeIds = new Set();
   orgNodes = mapColumns(rawRows, colMap);
 
+  // Detect currency symbol from raw cost values — check prefix AND suffix
+  const currencyMatch = orgNodes
+    .map(n => {
+      const raw = (n._rawCost || '').trim();
+      return raw.match(/^([^\d\s\-+]+)/) || raw.match(/([^\d\s.,]+)$/);
+    })
+    .find(m => m);
+  // Keep the default (€) if nothing detected in the data
+  if (currencyMatch) costCurrency = currencyMatch[1];
+
   // Compute hierarchy
   const result = computeLayers(orgNodes);
   if (!result) return;
@@ -966,14 +1039,22 @@ function buildFromRaw() {
   // Hand off to the chart renderer (Step 4)
   setupChart(displayRoots);
 
+  // Restore hidden nodes from localStorage (only when not loading a named slot,
+  // which handles its own restore via _restoringSlot)
+  if (!_restoringSlot && typeof restoreHiddenNodes === 'function') {
+    restoreHiddenNodes();
+    if (hiddenNodeIds.size) { rerenderChart(); renderHiddenPanel(); }
+  }
+
   // Update company slot UI (shows Save button, highlights active slot)
   if (typeof renderCompanySlots === 'function') renderCompanySlots();
 }
 
 function showUnassignedPanel(unassigned) {
   const panel = document.getElementById('unassigned-panel');
-  if (!unassigned || !unassigned.length) { panel.classList.add('hidden'); return; }
+  if (!unassigned || !unassigned.length) { panel.classList.add('hidden'); _syncExceptionsGroup(); return; }
   panel.classList.remove('hidden');
+  _syncExceptionsGroup();
   document.getElementById('unassigned-count').textContent = unassigned.length;
   document.getElementById('unassigned-list').innerHTML = unassigned.map(n =>
     `<div class="text-xs py-0.5 text-gray-600 dark:text-gray-400" title="${escHtml(n.name)}">${escHtml(n.name)}</div>`
@@ -1015,7 +1096,6 @@ function nodeColor(node) {
   return DEFAULT_NODE_COLOR;
 }
 
-console.log('[Step 3] mapColumns + computeLayers ready ✓');
 </script>
 
 <!-- ═══════════════════════════════════════════════════════════════
@@ -1059,6 +1139,9 @@ function setupChart(roots) {
   const chartRoot  = document.getElementById('chart-root');
   const emptyState = document.getElementById('empty-state');
   emptyState.style.display = 'none';
+  // Show Remap button once a chart is loaded
+  const btnRemap = document.getElementById('btn-remap');
+  if (btnRemap) btnRemap.style.display = 'flex';
 
   // Auto-collapse for performance on large datasets
   if (orgNodes.length > 200) {
@@ -1091,55 +1174,62 @@ function autoCollapseDeep(roots, maxDepth) {
 //   Returns { positions: Map<id, {x,y}>, totalW, totalH }
 //   We compute subtree widths bottom-up, then place nodes top-down.
 // ─────────────────────────────────────────────────────────────────
+// Per-layout memoization caches — reset at the start of each layout() call
+let _swCache = null, _shCache = null;
+
 function subtreeWidth(node) {
+  if (_swCache && _swCache.has(node.id)) return _swCache.get(node.id);
   const vis = node.children.filter(c => !hiddenNodeIds.has(c.id));
-  if (node.collapsed || !vis.length) return NODE_W;
-  const mode = childLayout(node);
-
-  if (mode === 'horizontal') {
-    return Math.max(NODE_W,
-      vis.reduce((s, c) => s + subtreeWidth(c), 0)
-      + H_GAP * (vis.length - 1));
+  let result;
+  if (node.collapsed || !vis.length) {
+    result = NODE_W;
+  } else {
+    const mode = childLayout(node);
+    if (mode === 'horizontal') {
+      result = Math.max(NODE_W,
+        vis.reduce((s, c) => s + subtreeWidth(c), 0)
+        + H_GAP * (vis.length - 1));
+    } else {
+      // vertical and fishbone share the same width formula
+      const maxChildW = Math.max(...vis.map(c => subtreeWidth(c)));
+      result = 2 * Math.max(NODE_W / 2, SPINE_GAP + maxChildW);
+    }
   }
-
-  if (mode === 'vertical') {
-    // Children indented to the right of the spine (parent centre-x).
-    // Right side needs: SPINE_GAP + max child subtree width.
-    // We make both halves equal so the parent card stays centred.
-    const maxChildW = Math.max(...vis.map(c => subtreeWidth(c)));
-    return 2 * Math.max(NODE_W / 2, SPINE_GAP + maxChildW);
-  }
-
-  // fishbone: children split left / right off the spine (both sides equal)
-  const maxChildW = Math.max(...vis.map(c => subtreeWidth(c)));
-  return 2 * Math.max(NODE_W / 2, SPINE_GAP + maxChildW);
+  if (_swCache) _swCache.set(node.id, result);
+  return result;
 }
 
 function subtreeHeight(node) {
+  if (_shCache && _shCache.has(node.id)) return _shCache.get(node.id);
   const vis = node.children.filter(c => !hiddenNodeIds.has(c.id));
-  if (node.collapsed || !vis.length) return NODE_H;
-  const mode = childLayout(node);
-
-  if (mode === 'horizontal') {
-    return NODE_H + V_GAP + Math.max(...vis.map(c => subtreeHeight(c)));
+  let result;
+  if (node.collapsed || !vis.length) {
+    result = NODE_H;
+  } else {
+    const mode = childLayout(node);
+    if (mode === 'horizontal') {
+      result = NODE_H + V_GAP + Math.max(...vis.map(c => subtreeHeight(c)));
+    } else if (mode === 'vertical') {
+      // Children stacked: sum of each child's full subtree height + gaps
+      result = NODE_H + vis.reduce((s, c) => s + V_GAP + subtreeHeight(c), 0);
+    } else {
+      // fishbone: left and right columns run in parallel — take the taller side
+      const leftH  = vis.filter((_, i) => i % 2 === 0)
+                       .reduce((s, c) => s + V_GAP + subtreeHeight(c), 0);
+      const rightH = vis.filter((_, i) => i % 2 !== 0)
+                       .reduce((s, c) => s + V_GAP + subtreeHeight(c), 0);
+      result = NODE_H + Math.max(leftH, rightH);
+    }
   }
-
-  if (mode === 'vertical') {
-    // Children stacked: sum of each child's full subtree height + gaps
-    return NODE_H + vis.reduce((s, c) => s + V_GAP + subtreeHeight(c), 0);
-  }
-
-  // fishbone: left and right columns run in parallel — take the taller side
-  const leftH  = vis.filter((_, i) => i % 2 === 0)
-                   .reduce((s, c) => s + V_GAP + subtreeHeight(c), 0);
-  const rightH = vis.filter((_, i) => i % 2 !== 0)
-                   .reduce((s, c) => s + V_GAP + subtreeHeight(c), 0);
-  return NODE_H + Math.max(leftH, rightH);
+  if (_shCache) _shCache.set(node.id, result);
+  return result;
 }
 
 const CHART_PADDING = 60;   // breathing room on all sides of the chart
 
 function layout(roots) {
+  _swCache = new Map();
+  _shCache = new Map();
   const positions = new Map();
   let totalW = 0, totalH = 0;
 
@@ -1154,7 +1244,10 @@ function layout(roots) {
   });
   totalW = cursorX + CHART_PADDING;
 
-  return { positions, totalW, totalH: totalH + NODE_H + CHART_PADDING };
+  const result = { positions, totalW, totalH: totalH + NODE_H + CHART_PADDING };
+  _swCache = null;
+  _shCache = null;
+  return result;
 }
 
 function placeSubtree(node, x, y, allocW, positions) {
@@ -1307,7 +1400,7 @@ function createCard(node, pos) {
                  ${isSelected ? 'ring-2 ring-offset-2 ring-brand-500' : ''}
                  transition-shadow"
          style="border-color:${color}">
-      <button class="bin-btn" title="Hide from chart" onclick="event.stopPropagation();hideNode('${node.id}')">🗑</button>
+      <button class="bin-btn" title="Hide from chart" onclick="event.stopPropagation();hideNode(${JSON.stringify(node.id).replace(/"/g,'&quot;')})">🗑</button>
       <!-- Avatar initials -->
       <div class="w-9 h-9 rounded-full flex items-center justify-center text-white
                   font-bold text-xs shrink-0"
@@ -1317,14 +1410,14 @@ function createCard(node, pos) {
       <!-- Text -->
       <div class="flex-1 min-w-0">
         <p class="text-xs font-semibold leading-tight dark:text-gray-100" style="word-break:break-word">${nameHtml}</p>
-        ${node.title ? `<p class="text-[10px] text-gray-500 dark:text-gray-400 truncate">${escHtml(node.title)}</p>` : ''}
+        ${node.title ? `<p class="text-xs text-gray-700 dark:text-gray-300 truncate">${escHtml(node.title)}</p>` : ''}
         ${node.dept  ? `<span class="text-[9px] font-bold uppercase px-1 rounded"
                               style="color:${color};background:${color}18">${escHtml(node.dept)}</span>` : ''}
       </div>
       <!-- Collapse/expand toggle (one level) + full expand -->
       ${hasChildren ? `
         <div class="expand-btn">
-          <button onclick="event.stopPropagation();cardToggleOne('${node.id}')"
+          <button onclick="event.stopPropagation();cardToggleOne(${JSON.stringify(node.id).replace(/"/g,'&quot;')})"
                   style="width:20px;height:20px;border-radius:50%;border:2px solid ${color};
                          color:${color};background:white;font-size:11px;font-weight:bold;
                          cursor:pointer;line-height:1;"
@@ -1332,7 +1425,7 @@ function createCard(node, pos) {
             ${node.collapsed ? '+' : '−'}
           </button>
           ${node.collapsed ? `
-          <button onclick="event.stopPropagation();cardExpandAll('${node.id}')"
+          <button onclick="event.stopPropagation();cardExpandAll(${JSON.stringify(node.id).replace(/"/g,'&quot;')})"
                   style="width:20px;height:20px;border-radius:50%;border:2px solid ${color};
                          color:${color};background:white;font-size:10px;font-weight:bold;
                          cursor:pointer;line-height:1;"
@@ -1360,7 +1453,7 @@ function createCard(node, pos) {
   card.querySelector('.rounded-xl').addEventListener('click', e => {
     if (e.target.tagName === 'BUTTON') return; // let buttons handle their own clicks
     selectedId = node.id;
-    showNodeDetail(node);
+    showNodeCosts(node);
     openColorPicker(node, card.querySelector('.rounded-xl'));
     document.querySelectorAll('.node-card .rounded-xl').forEach(el => {
       el.classList.remove('ring-2','ring-offset-2','ring-brand-500');
@@ -1404,6 +1497,7 @@ function applyLevelFilter(level) {
   levelFilter = level;
   const label = document.getElementById('level-label');
   if (label) label.textContent = level === null ? 'All' : level;
+  try { localStorage.setItem(LEVEL_KEY, level === null ? 'all' : level); } catch(e) {}
 
   function setCollapsed(node, d) {
     node.collapsed = level !== null && d >= level;
@@ -1493,8 +1587,6 @@ function drawConnectors(roots, positions) {
         return p ? { node: c, cx: p.x + NODE_W / 2, cy: p.y } : null;
       }).filter(Boolean);
       if (!childData.length) { node.children.forEach(c => drawEdges(c)); return; }
-
-      if (!childData.length) return;
       const busY     = childData[0].cy - Math.round(V_GAP * 0.5);
       const xs       = childData.map(d => d.cx);
       const busLeft  = Math.min(px, ...xs);
@@ -1552,29 +1644,86 @@ function drawConnectors(roots, positions) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// showNodeDetail(node)
+// showNodeCosts(node)
 //   Populates the sidebar "Selected" panel with node metadata.
 // ─────────────────────────────────────────────────────────────────
-function showNodeDetail(node) {
+function fmtCost(n) {
+  if (!n) return null;
+  const sym = (typeof costCurrency !== 'undefined' ? costCurrency : '');
+  if (n >= 1e6)  return sym + (n / 1e6).toFixed(n % 1e6 === 0 ? 0 : 1) + 'M';
+  if (n >= 1000) return sym + Math.round(n / 1000) + 'k';
+  return sym + n.toLocaleString();
+}
+
+function subtreeCost(node) {
+  return (node.cost || 0) + node.children.reduce((s, c) => s + subtreeCost(c), 0);
+}
+
+function subtreeLayers(node) {
+  if (!node.children.length) return 0;
+  return 1 + Math.max(...node.children.map(subtreeLayers));
+}
+
+// ── Sidebar tab switching ─────────────────────────────────────────
+const _TAB_ACTIVE   = 'flex-1 py-2 text-xs font-semibold uppercase tracking-wide border-b-2 transition-colors border-purple-500 text-purple-700 dark:text-purple-400';
+const _TAB_INACTIVE = 'flex-1 py-2 text-xs font-semibold uppercase tracking-wide border-b-2 transition-colors border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300';
+
+function switchSidebarTab(tab) {
+  const isOverview = tab === 'overview';
+  document.getElementById('tab-overview').style.display = isOverview ? '' : 'none';
+  document.getElementById('tab-detail').style.display   = isOverview ? 'none' : '';
+  document.getElementById('tab-btn-overview').className = isOverview ? _TAB_ACTIVE : _TAB_INACTIVE;
+  document.getElementById('tab-btn-detail').className   = isOverview ? _TAB_INACTIVE : _TAB_ACTIVE;
+}
+
+function _syncExceptionsGroup() {
+  const hasHidden     = !document.getElementById('hidden-nodes-panel').classList.contains('hidden');
+  const hasUnassigned = !document.getElementById('unassigned-panel').classList.contains('hidden');
+  document.getElementById('exceptions-group').classList.toggle('hidden', !hasHidden && !hasUnassigned);
+}
+
+function showNodeCosts(node) {
+  switchSidebarTab('detail');
+  document.getElementById('detail-empty').style.display = 'none';
   const panel = document.getElementById('node-detail');
   const body  = document.getElementById('node-detail-body');
   panel.classList.remove('hidden');
 
+  const ownCost   = fmtCost(node.cost);
+  const totalCost = fmtCost(subtreeCost(node));
+
   const rows = [
-    ['Name',  node.name],
-    ['Title', node.title],
-    ['Dept',  node.dept],
-    ['Cost',  node.cost ? node.cost.toLocaleString() : ''],
-    ['ID',    node.id],
-    ['Reports', node.children.length],
+    ['Name',    node.name],
+    ['Title',   node.title],
+    ['Dept',    node.dept],
+    ['Reports', node.children.length || null],
+    ['Layers',  subtreeLayers(node) || null],
   ].filter(([,v]) => v);
+
+  const hasCostData = orgNodes.some(n => n.cost > 0);
+  const costHtml = hasCostData ? `
+    <div class="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700 space-y-1">
+      <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Cost</p>
+      <div class="flex gap-1 flex-wrap">
+        <span class="text-gray-400 dark:text-gray-500 text-xs w-14 shrink-0">Own:</span>
+        <span class="text-xs font-semibold text-indigo-600 dark:text-indigo-400">${ownCost || '—'}</span>
+      </div>
+      ${node.children.length ? `<div class="flex gap-1 flex-wrap">
+        <span class="text-gray-400 dark:text-gray-500 text-xs w-14 shrink-0">Subtree:</span>
+        <span class="text-xs font-semibold text-indigo-600 dark:text-indigo-400">${totalCost || '—'}</span>
+      </div>` : ''}
+    </div>` :
+    (colMap.cost ? '' :
+    `<div class="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+      <p class="text-[10px] italic text-gray-400 dark:text-gray-600">Cost column not mapped — re-import and assign it in the wizard.</p>
+    </div>`);
 
   body.innerHTML = rows.map(([k, v]) =>
     `<div class="flex gap-1 flex-wrap">
        <span class="text-gray-400 dark:text-gray-500 text-xs w-14 shrink-0">${k}:</span>
-       <span class="text-xs font-medium flex-1">${v}</span>
+       <span class="text-xs font-medium flex-1">${escHtml(String(v))}</span>
      </div>`
-  ).join('');
+  ).join('') + costHtml;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -1597,7 +1746,6 @@ function escHtml(s) {
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-console.log('[Step 4] setupChart + renderChart ready ✓');
 </script>
 <!-- ═══════════════════════════════════════════════════════════════
      COLOR LABELS — per-node colour overrides with user-defined labels
@@ -1623,7 +1771,7 @@ function renderColorLabels() {
       <input type="color" value="${cl.color}"
              class="w-5 h-5 rounded cursor-pointer border-0 p-0 shrink-0"
              onchange="colorLabels[${i}].color=this.value; _rerenderIfChart(); renderColorLabels(); if(typeof autoSaveActiveSlot==='function')autoSaveActiveSlot();" />
-      <input type="text" value="${cl.label.replace(/"/g,'&amp;quot;')}"
+      <input type="text" value="${escHtml(cl.label)}"
              class="flex-1 min-w-0 text-xs border border-gray-200 dark:border-gray-600 rounded px-1 py-0.5
                      bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
              oninput="colorLabels[${i}].label=this.value; _rerenderIfChart(); if(typeof autoSaveActiveSlot==='function')autoSaveActiveSlot();" />
@@ -1780,6 +1928,7 @@ function applyColorLabel(node, labelIdx, scope) {
 // ─────────────────────────────────────────────────────────────────
 function hideNode(id) {
   hiddenNodeIds.add(id);
+  persistHiddenNodes();
   renderHiddenPanel();
   rerenderChart();
   if (typeof autoSaveActiveSlot === 'function') autoSaveActiveSlot();
@@ -1787,6 +1936,7 @@ function hideNode(id) {
 
 function unhideNode(id) {
   hiddenNodeIds.delete(id);
+  persistHiddenNodes();
   renderHiddenPanel();
   rerenderChart();
   if (typeof autoSaveActiveSlot === 'function') autoSaveActiveSlot();
@@ -1803,8 +1953,9 @@ function toggleSidebarSection(bodyId, chevronId) {
 function renderHiddenPanel() {
   const panel = document.getElementById('hidden-nodes-panel');
   const list  = document.getElementById('hidden-nodes-list');
-  if (!hiddenNodeIds.size) { panel.classList.add('hidden'); return; }
+  if (!hiddenNodeIds.size) { panel.classList.add('hidden'); _syncExceptionsGroup(); return; }
   panel.classList.remove('hidden');
+  _syncExceptionsGroup();
   const countEl = document.getElementById('hidden-count');
   if (countEl) countEl.textContent = hiddenNodeIds.size;
   const items = [...hiddenNodeIds].map(id => {
@@ -1812,7 +1963,7 @@ function renderHiddenPanel() {
     const name = node ? escHtml(node.name) : escHtml(id);
     return `<div class="flex items-center justify-between gap-1 py-0.5">
       <span class="text-xs text-gray-600 dark:text-gray-400 truncate flex-1">${name}</span>
-      <button onclick="unhideNode('${id.replace(/'/g, "\'")}')"
+      <button onclick="unhideNode(${JSON.stringify(id).replace(/"/g,'&quot;')})"
               class="text-[10px] text-brand-500 hover:text-brand-700 shrink-0 font-medium">
         Show
       </button>
@@ -1824,7 +1975,6 @@ function renderHiddenPanel() {
 // Initialise the sidebar list on load
 renderColorLabels();
 
-console.log('[Color Labels] ready ✓');
 </script>
 
 
@@ -1859,8 +2009,12 @@ function fitToView() {
 const _origSetupChart = setupChart;
 window.setupChart = function(roots) {
   _origSetupChart(roots);
-  // Small delay lets the DOM paint first
-  requestAnimationFrame(() => requestAnimationFrame(fitToView));
+  // After paint: restore saved zoom if one exists, otherwise auto-fit
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const savedZoom = parseFloat(localStorage.getItem(ZOOM_KEY));
+    if (!isNaN(savedZoom)) applyZoom(savedZoom);
+    else fitToView();
+  }));
 };
 
 
@@ -1874,6 +2028,7 @@ document.addEventListener('keydown', e => {
     document.querySelectorAll('.node-card .rounded-xl').forEach(el =>
       el.classList.remove('ring-2','ring-offset-2','ring-brand-500'));
     document.getElementById('node-detail').classList.add('hidden');
+    document.getElementById('detail-empty').style.display = '';
   }
   // + / - zoom shortcuts
   if ((e.key === '+' || e.key === '=') && !e.target.matches('input,select,textarea'))
@@ -1926,8 +2081,6 @@ document.getElementById('chart-area').addEventListener('wheel', e => {
   });
 })();
 
-console.log('[Step 5] Polish + expand/collapse-all ready ✓');
-console.log('OrgChart Wizard fully loaded ✓');
 </script>
 
 <!-- ── Custom card tooltip ────────────────────────────── -->
@@ -2001,11 +2154,27 @@ console.log('OrgChart Wizard fully loaded ✓');
 <script>
 'use strict';
 
-const SLOTS_COUNT   = 6;
-const SLOTS_KEY     = 'orgchart_companies';
-const LAST_SLOT_KEY = 'orgchart_last_slot';
+const SLOTS_COUNT    = 6;
+const SLOTS_KEY      = 'orgchart_companies';
+const LAST_SLOT_KEY  = 'orgchart_last_slot';
+const ZOOM_KEY       = 'orgchart_zoom';
+const LEVEL_KEY      = 'orgchart_level';
+const HIDDEN_KEY     = 'orgchart_hidden_nodes';   // fallback persistence for hidden nodes
 let activeSlotIndex = -1;
 let _restoringSlot  = null; // temp state during slot restore
+
+// Persist hidden nodes to localStorage so they survive reimport & page refresh
+function persistHiddenNodes() {
+  try { localStorage.setItem(HIDDEN_KEY, JSON.stringify([...hiddenNodeIds])); } catch(e) {}
+}
+function restoreHiddenNodes() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(HIDDEN_KEY) || '[]');
+    if (!saved.length) return;
+    const validIds = new Set(orgNodes.map(n => n.id));
+    saved.forEach(id => { if (validIds.has(id)) hiddenNodeIds.add(id); });
+  } catch(e) {}
+}
 
 // ── Storage helpers ──────────────────────────────────────────────
 function getSlots() {
@@ -2185,17 +2354,28 @@ function deleteActiveSlotConfirm() {
 // ── Bootstrap on page load ───────────────────────────────────────
 renderCompanySlots();
 
-// Auto-restore the last active company so the chart is ready immediately
+// Auto-restore the last active company, zoom, and level filter
 (function autoRestoreLastSlot() {
   const saved = localStorage.getItem(LAST_SLOT_KEY);
   if (saved === null) return;
   const index = parseInt(saved, 10);
   const slots = getSlots();
-  if (!isNaN(index) && index >= 0 && slots[index]) loadSlot(index);
+  if (!isNaN(index) && index >= 0 && slots[index]) {
+    loadSlot(index);
+
+    // Restore level filter
+    const savedLevel = localStorage.getItem(LEVEL_KEY);
+    if (savedLevel !== null && savedLevel !== 'all') {
+      applyLevelFilter(parseInt(savedLevel, 10));
+    }
+  }
 })();
 
-console.log('[Companies] Slot system ready ✓');
 </script>
+
+<footer class="text-center py-2 text-[10px] text-gray-400 dark:text-gray-600 select-none">
+  OrgCharter &mdash; by Marc Lamure
+</footer>
 
 </body>
 </html>
