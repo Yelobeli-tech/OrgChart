@@ -87,12 +87,21 @@
      TOOLBAR
 ════════════════════════════════════════════════ -->
 <header id="toolbar"
-  class="flex items-center gap-3 px-4 py-2 z-20 flex-wrap shadow-lg"
+  class="flex items-start gap-0 px-4 py-2 z-20 shadow-lg"
   style="background:#6d28d9">
 
-  <span class="font-bold text-white text-lg mr-2 whitespace-nowrap">
-    ⬡ OrgChart Wizard
-  </span>
+  <!-- Logo — fixed width, never wraps -->
+  <div class="flex items-center gap-2 flex-shrink-0 mr-3 py-1 whitespace-nowrap">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"
+         class="w-7 h-7 rounded-lg" style="background:#374151">
+      <circle cx="32" cy="21" r="10" fill="#a855f7"/>
+      <path d="M10 56 Q10 39 32 39 Q54 39 54 56" fill="#a855f7"/>
+    </svg>
+    <span class="font-bold text-white text-lg">OrgChart Wizard</span>
+  </div>
+
+  <!-- All controls — wrap freely; row 2 aligns under Import -->
+  <div class="flex flex-wrap items-center gap-3 flex-1">
 
   <!-- File upload -->
   <label class="cursor-pointer flex items-center gap-1.5 text-sm font-medium px-4 py-1.5
@@ -105,17 +114,6 @@
     Import Excel / CSV
     <input id="file-input" type="file" accept=".xlsx,.xls,.csv" class="hidden"/>
   </label>
-
-  <!-- Discard -->
-  <button id="btn-discard"
-    class="hidden flex items-center gap-1.5 text-sm font-medium px-4 py-1.5 rounded-lg
-           border border-red-200/60 bg-red-500/30 text-white
-           hover:bg-red-500/50 shadow-sm transition-colors">
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-    </svg>
-    Discard
-  </button>
 
   <!-- Company Dropdown -->
   <div class="flex items-center gap-1">
@@ -230,6 +228,8 @@
     class="w-8 h-8 flex items-center justify-center rounded-lg border border-white/30
            bg-white/20 hover:bg-white/30 font-bold text-sm transition-colors"
     title="Toggle dark mode">🌙</button>
+
+  </div><!-- end controls wrapper -->
 </header>
 
 <!-- ══════════════════════════════════════════════
@@ -466,20 +466,28 @@ function fitToView() {
 // ── Print ──────────────────────────────────────────────────────
 document.getElementById('btn-print').addEventListener('click', () => window.print());
 
-// ── PNG export (placeholder — wired up in step 4) ─────────────
+// ── PNG export ─────────────────────────────────────────────────
 document.getElementById('btn-export-png').addEventListener('click', exportPNG);
 function exportPNG() {
   if (typeof html2canvas === 'undefined') { showError('html2canvas not loaded'); return; }
+
+  // Reset zoom before capture — css transform:scale() causes html2canvas
+  // to render out-of-viewport nodes as phantom grey boxes.
+  const savedZoom = zoomLevel;
+  chartRoot.style.transform      = 'none';
+  chartRoot.style.transformOrigin = '';
+
   html2canvas(chartRoot, {
     backgroundColor: '#ffffff',
     scale: 2,
-    onclone: (_doc, el) => {
+    useCORS: true,
+    onclone: (doc, el) => {
+      doc.documentElement.classList.remove('dark');
+      el.querySelectorAll('.bin-btn, .expand-btn').forEach(b => b.style.display = 'none');
       el.querySelectorAll('.node-card .rounded-xl').forEach(card => {
-        card.style.borderColor = '#000000';
         card.style.backgroundColor = '#ffffff';
-        card.querySelectorAll('p, span, a').forEach(t => {
-          t.style.color = '#1f2937';
-        });
+        card.style.borderColor     = '#e5e7eb';
+        card.querySelectorAll('p, span, a').forEach(t => { t.style.color = '#1f2937'; });
       });
     }
   }).then(canvas => {
@@ -487,7 +495,11 @@ function exportPNG() {
     a.download = 'orgchart.png';
     a.href = canvas.toDataURL('image/png');
     a.click();
-  }).catch(() => showError('PNG export failed'));
+  }).catch(() => {
+    showError('PNG export failed');
+  }).finally(() => {
+    applyZoom(savedZoom);
+  });
 }
 
 console.log('[Step 1] Skeleton ready ✓');
@@ -953,11 +965,6 @@ function buildFromRaw() {
 
   // Hand off to the chart renderer (Step 4)
   setupChart(displayRoots);
-
-  // Show discard button
-  const discardBtn = document.getElementById('btn-discard');
-  discardBtn.classList.remove('hidden');
-  discardBtn.style.display = 'inline-flex';
 
   // Update company slot UI (shows Save button, highlights active slot)
   if (typeof renderCompanySlots === 'function') renderCompanySlots();
@@ -1857,29 +1864,6 @@ window.setupChart = function(roots) {
 };
 
 
-// ─────────────────────────────────────────────────────────────────
-// Discard button — resets the entire chart back to empty state
-// ─────────────────────────────────────────────────────────────────
-document.getElementById('btn-discard').addEventListener('click', function () {
-  rawRows = []; colMap = {}; orgNodes = []; nodeColorOverrides = {}; hiddenNodeIds = new Set(); closeColorPicker();
-  document.getElementById('hidden-nodes-panel').classList.add('hidden');
-  const root = document.getElementById('chart-root');
-  root.querySelectorAll('.node-card').forEach(el => el.remove());
-  document.getElementById('svg-connectors').innerHTML = '';
-  root.style.width  = '';
-  root.style.height = '';
-  document.getElementById('empty-state').style.display = '';
-  document.getElementById('stat-nodes') .textContent = '—';
-  document.getElementById('stat-depth') .textContent = '—';
-  document.getElementById('stat-layers').textContent = '—';
-
-  document.getElementById('unassigned-panel').classList.add('hidden');
-  document.getElementById('node-detail').classList.add('hidden');
-  this.classList.add('hidden');
-  applyZoom(1);
-  // Deactivate company slot
-  if (typeof activeSlotIndex !== 'undefined') { activeSlotIndex = -1; renderCompanySlots(); }
-});
 
 // ─────────────────────────────────────────────────────────────────
 // Keyboard shortcut: Escape deselects node
@@ -2017,8 +2001,9 @@ console.log('OrgChart Wizard fully loaded ✓');
 <script>
 'use strict';
 
-const SLOTS_COUNT = 6;
-const SLOTS_KEY   = 'orgchart_companies';
+const SLOTS_COUNT   = 6;
+const SLOTS_KEY     = 'orgchart_companies';
+const LAST_SLOT_KEY = 'orgchart_last_slot';
 let activeSlotIndex = -1;
 let _restoringSlot  = null; // temp state during slot restore
 
@@ -2046,6 +2031,7 @@ function saveToSlot(index, name) {
   };
   setSlots(slots);
   activeSlotIndex = index;
+  localStorage.setItem(LAST_SLOT_KEY, index);
   renderCompanySlots();
 }
 
@@ -2088,6 +2074,7 @@ function loadSlot(index) {
   }
 
   activeSlotIndex = index;
+  localStorage.setItem(LAST_SLOT_KEY, index);
   renderCompanySlots();
 }
 
@@ -2096,7 +2083,10 @@ function deleteSlot(index) {
   const slots = getSlots();
   slots[index] = null;
   setSlots(slots);
-  if (activeSlotIndex === index) activeSlotIndex = -1;
+  if (activeSlotIndex === index) {
+    activeSlotIndex = -1;
+    localStorage.removeItem(LAST_SLOT_KEY);
+  }
   renderCompanySlots();
 }
 
@@ -2194,6 +2184,15 @@ function deleteActiveSlotConfirm() {
 
 // ── Bootstrap on page load ───────────────────────────────────────
 renderCompanySlots();
+
+// Auto-restore the last active company so the chart is ready immediately
+(function autoRestoreLastSlot() {
+  const saved = localStorage.getItem(LAST_SLOT_KEY);
+  if (saved === null) return;
+  const index = parseInt(saved, 10);
+  const slots = getSlots();
+  if (!isNaN(index) && index >= 0 && slots[index]) loadSlot(index);
+})();
 
 console.log('[Companies] Slot system ready ✓');
 </script>
