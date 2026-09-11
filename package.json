@@ -1,0 +1,10 @@
+{
+  "name": "orgchart-maker",
+  "private": true,
+  "version": "1.0.0",
+  "description": "OrgCharter - single-file interactive org chart tool",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
